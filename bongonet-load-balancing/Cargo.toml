@@ -1,0 +1,40 @@
+[package]
+name = "bongonet-load-balancing"
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+license = "Apache-2.0"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+categories = ["network-programming"]
+keywords = ["proxy", "bongonet"]
+description = """
+Common load balancing features for Bongonet proxy.
+"""
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bongonet_load_balancing"
+path = "src/lib.rs"
+
+[dependencies]
+async-trait = { workspace = true }
+bongonet-http = { version = "0.3.0", path = "../bongonet-http" }
+bongonet-error = { version = "0.3.0", path = "../bongonet-error" }
+bongonet-core = { version = "0.3.0", path = "../bongonet-core", default-features = false }
+bongonet-ketama = { version = "0.3.0", path = "../bongonet-ketama" }
+bongonet-runtime = { version = "0.3.0", path = "../bongonet-runtime" }
+arc-swap = "1"
+fnv = "1"
+rand = "0"
+tokio = { workspace = true }
+futures = "0"
+log = { workspace = true }
+http = { workspace = true }
+derivative = "2.2.0"
+
+[dev-dependencies]
+
+[features]
+default = ["openssl"]
+openssl = ["bongonet-core/openssl"]
+boringssl = ["bongonet-core/boringssl"]

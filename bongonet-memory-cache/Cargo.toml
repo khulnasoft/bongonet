@@ -1,0 +1,27 @@
+[package]
+name = "bongonet-memory-cache"
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+license = "Apache-2.0"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+categories = ["algorithms", "caching"]
+keywords = ["async", "cache", "bongonet"]
+description = """
+An async in-memory cache with cache stampede protection.
+"""
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bongonet_memory_cache"
+path = "src/lib.rs"
+
+[dependencies]
+TinyUFO = { version = "0.3.0", path = "../tinyufo" }
+ahash = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+async-trait = { workspace = true }
+bongonet-error = { version = "0.3.0", path = "../bongonet-error" }
+log = { workspace = true }
+parking_lot = "0"
+bongonet-timeout = { version = "0.3.0", path = "../bongonet-timeout" }

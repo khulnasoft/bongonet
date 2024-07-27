@@ -1,0 +1,64 @@
+[package]
+name = "bongonet-proxy"
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+license = "Apache-2.0"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+categories = ["asynchronous", "network-programming"]
+keywords = ["async", "http", "proxy", "bongonet"]
+exclude = ["tests/*"]
+description = """
+Bongonet HTTP proxy APIs and traits.
+"""
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bongonet_proxy"
+path = "src/lib.rs"
+
+[dependencies]
+bongonet-error = { version = "0.3.0", path = "../bongonet-error" }
+bongonet-core = { version = "0.3.0", path = "../bongonet-core", default-features = false }
+bongonet-timeout = { version = "0.3.0", path = "../bongonet-timeout" }
+bongonet-cache = { version = "0.3.0", path = "../bongonet-cache", default-features = false }
+tokio = { workspace = true, features = ["macros", "net"] }
+bongonet-http = { version = "0.3.0", path = "../bongonet-http" }
+http = { workspace = true }
+futures = "0.3"
+bytes = { workspace = true }
+async-trait = { workspace = true }
+log = { workspace = true }
+h2 = { workspace = true }
+once_cell = { workspace = true }
+clap = { version = "3.2.25", features = ["derive"] }
+regex = "1"
+
+[dev-dependencies]
+reqwest = { version = "0.11", features = [
+    "gzip",
+    "rustls",
+], default-features = false }
+tokio-test = "0.4"
+env_logger = "0.9"
+hyperlocal = "0.8"
+hyper = "0.14"
+tokio-tungstenite = "0.20.1"
+bongonet-load-balancing = { version = "0.3.0", path = "../bongonet-load-balancing" }
+prometheus = "0"
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.8"
+
+[features]
+default = ["openssl"]
+openssl = ["bongonet-core/openssl", "bongonet-cache/openssl"]
+boringssl = ["bongonet-core/boringssl", "bongonet-cache/boringssl"]
+
+# or locally cargo doc --config "build.rustdocflags='--cfg doc_async_trait'"
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "doc_async_trait"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(doc_async_trait)'] }

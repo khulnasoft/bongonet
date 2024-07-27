@@ -1,4 +1,37 @@
 [workspace]
+resolver = "2"
 members = [
+    "bongonet",
+    "bongonet-core",
+    "bongonet-pool",
+    "bongonet-error",
     "bongonet-limits",
+    "bongonet-timeout",
+    "bongonet-header-serde",
+    "bongonet-proxy",
+    "bongonet-cache",
+    "bongonet-http",
+    "bongonet-lru",
+    "bongonet-openssl",
+    "bongonet-boringssl",
+    "bongonet-runtime",
+    "bongonet-ketama",
+    "bongonet-load-balancing",
+    "bongonet-memory-cache",
+    "tinyufo",
 ]
+
+[workspace.dependencies]
+tokio = "1"
+async-trait = "0.1.42"
+httparse = "1"
+bytes = "1.0"
+http = "1.0.0"
+log = "0.4"
+h2 = ">=0.4.4"
+once_cell = "1"
+lru = "0"
+ahash = ">=0.8.9"
+
+[profile.bench]
+debug = true

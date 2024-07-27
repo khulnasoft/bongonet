@@ -1,0 +1,29 @@
+[package]
+name = "bongonet-pool"
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+license = "Apache-2.0"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+categories = ["network-programming"]
+keywords = ["async", "pooling", "bongonet"]
+description = """
+A connection pool system for connection reuse.
+"""
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bongonet_pool"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { workspace = true, features = ["sync", "io-util"] }
+thread_local = "1.0"
+lru = { workspace = true }
+log = { workspace = true }
+parking_lot = "0.12"
+crossbeam-queue = "0.3"
+bongonet-timeout = { version = "0.3.0", path = "../bongonet-timeout" }
+
+[dev-dependencies]
+tokio-test = "0.4"

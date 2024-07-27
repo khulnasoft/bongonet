@@ -1,17 +1,21 @@
 [package]
 name = "bongonet-limits"
-version = "0.1.0"
-authors = ["KhulnaSoft DevOps <devops@khulnasoft.com>"]
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
 license = "Apache-2.0"
 description = "A library for rate limiting and event frequency estimation"
-edition = "2018"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+categories = ["algorithms"]
+keywords = ["rate-limit", "bongonet"]
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "bongonet_limits"
 path = "src/lib.rs"
 
 [dependencies]
-ahash = "0"
+ahash = { workspace = true }
 
 [dev-dependencies]
 rand = "0"

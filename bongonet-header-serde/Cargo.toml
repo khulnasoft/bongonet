@@ -1,0 +1,32 @@
+[package]
+name = "bongonet-header-serde"
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+license = "Apache-2.0"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+categories = ["compression"]
+keywords = ["http", "compression", "bongonet"]
+exclude = ["samples/*"]
+description = """
+HTTP header (de)serialization and compression for Bongonet.
+"""
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bongonet_header_serde"
+path = "src/lib.rs"
+
+[[bin]]
+name = "trainer"
+path = "src/trainer.rs"
+
+[dependencies]
+zstd = "0.13.1"
+zstd-safe = { version = "7.1.0", features = ["std"] }
+http = { workspace = true }
+bytes = { workspace = true }
+httparse = { workspace = true }
+bongonet-error = { version = "0.3.0", path = "../bongonet-error" }
+bongonet-http = { version = "0.3.0", path = "../bongonet-http" }
+thread_local = "1.0"

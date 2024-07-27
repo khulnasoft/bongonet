@@ -1,0 +1,66 @@
+[package]
+name = "bongonet"
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+license = "Apache-2.0"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+description = """
+A framework to build fast, reliable and programmable networked systems at Internet scale.
+"""
+categories = ["asynchronous", "network-programming"]
+keywords = ["async", "proxy", "http", "bongonet"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "bongonet"
+path = "src/lib.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+bongonet-core = { version = "0.3.0", path = "../bongonet-core", default-features = false }
+bongonet-http = { version = "0.3.0", path = "../bongonet-http" }
+bongonet-timeout = { version = "0.3.0", path = "../bongonet-timeout" }
+bongonet-load-balancing = { version = "0.3.0", path = "../bongonet-load-balancing", optional = true, default-features = false }
+bongonet-proxy = { version = "0.3.0", path = "../bongonet-proxy", optional = true, default-features = false }
+bongonet-cache = { version = "0.3.0", path = "../bongonet-cache", optional = true, default-features = false }
+
+[dev-dependencies]
+clap = { version = "3.2.25", features = ["derive"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+matches = "0.1"
+env_logger = "0.9"
+reqwest = { version = "0.11", features = ["rustls"], default-features = false }
+hyperlocal = "0.8"
+hyper = "0.14"
+jemallocator = "0.5"
+async-trait = { workspace = true }
+http = { workspace = true }
+log = { workspace = true }
+prometheus = "0.13"
+once_cell = { workspace = true }
+bytes = { workspace = true }
+regex = "1"
+
+[features]
+default = ["openssl"]
+openssl = [
+    "bongonet-core/openssl",
+    "bongonet-proxy?/openssl",
+    "bongonet-cache?/openssl",
+    "bongonet-load-balancing?/openssl",
+]
+boringssl = [
+    "bongonet-core/boringssl",
+    "bongonet-proxy?/boringssl",
+    "bongonet-cache?/boringssl",
+    "bongonet-load-balancing?/boringssl",
+]
+proxy = ["bongonet-proxy"]
+lb = ["bongonet-load-balancing", "proxy"]
+cache = ["bongonet-cache"]
+time = []

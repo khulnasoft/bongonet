@@ -1,0 +1,17 @@
+[package]
+name = "bongonet-error"
+version = "0.3.0"
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+license = "Apache-2.0"
+edition = "2021"
+repository = "https://github.com/khulnasoft/bongonet"
+categories = ["rust-patterns"]
+keywords = ["error", "error-handling", "bongonet"]
+description = """
+Error types and error handling APIs for Bongonet.
+"""
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bongonet_error"
+path = "src/lib.rs"
