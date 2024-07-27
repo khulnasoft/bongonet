@@ -18,10 +18,10 @@ use super::*;
 use crate::cache_control::{CacheControl, Cacheable, InterpretCacheControl};
 use crate::RespCacheable::*;
 
+use bongonet_http::RequestHeader;
 use http::{header, HeaderValue};
 use httpdate::HttpDate;
 use log::warn;
-use bongonet_http::RequestHeader;
 
 /// Decide if the request can be cacheable
 pub fn request_cacheable(req_header: &ReqHeader) -> bool {

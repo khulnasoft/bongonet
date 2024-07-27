@@ -16,10 +16,10 @@
 
 #![allow(non_camel_case_types)]
 
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use libc::socklen_t;
 #[cfg(target_os = "linux")]
 use libc::{c_int, c_ulonglong, c_void};
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use std::io::{self, ErrorKind};
 use std::mem;
 use std::net::SocketAddr;

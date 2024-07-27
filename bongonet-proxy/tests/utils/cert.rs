@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use once_cell::sync::Lazy;
 use bongonet_core::tls::pkey::{PKey, Private};
 use bongonet_core::tls::x509::X509;
+use once_cell::sync::Lazy;
 use std::fs;
 
 pub static ROOT_CERT: Lazy<X509> = Lazy::new(|| load_cert("keys/root.crt"));

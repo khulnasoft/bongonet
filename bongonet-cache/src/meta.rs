@@ -14,9 +14,9 @@
 
 //! Metadata for caching
 
-use http::Extensions;
 use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use bongonet_http::{HMap, ResponseHeader};
+use http::Extensions;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 
@@ -561,9 +561,9 @@ impl CacheMetaDefaults {
     }
 }
 
+use bongonet_header_serde::HeaderSerde;
 use log::warn;
 use once_cell::sync::{Lazy, OnceCell};
-use bongonet_header_serde::HeaderSerde;
 use std::fs::File;
 use std::io::Read;
 

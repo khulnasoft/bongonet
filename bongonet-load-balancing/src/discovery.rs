@@ -16,9 +16,9 @@
 
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use http::Extensions;
 use bongonet_core::protocols::l4::socket::SocketAddr;
 use bongonet_error::Result;
+use http::Extensions;
 use std::io::Result as IoResult;
 use std::net::ToSocketAddrs;
 use std::{

@@ -24,9 +24,9 @@ use crate::storage::{HandleHit, HandleMiss};
 use crate::trace::SpanHandle;
 
 use async_trait::async_trait;
+use bongonet_error::*;
 use bytes::Bytes;
 use parking_lot::RwLock;
-use bongonet_error::*;
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;

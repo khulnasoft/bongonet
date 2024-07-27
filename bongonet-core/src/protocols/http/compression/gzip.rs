@@ -14,9 +14,9 @@
 
 use super::Encode;
 
+use bongonet_error::Result;
 use bytes::Bytes;
 use flate2::write::GzEncoder;
-use bongonet_error::Result;
 use std::io::Write;
 use std::time::{Duration, Instant};
 

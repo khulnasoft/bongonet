@@ -15,11 +15,11 @@
 //! Cache Put module
 
 use crate::*;
-use bytes::Bytes;
-use http::header;
 use bongonet_core::protocols::http::{
     v1::common::header_value_content_length, HttpTask, ServerSession,
 };
+use bytes::Bytes;
+use http::header;
 
 /// The interface to define cache put behavior
 pub trait CachePut {
@@ -264,12 +264,12 @@ mod test {
 
 mod parse_response {
     use super::*;
-    use bytes::BytesMut;
-    use httparse::Status;
     use bongonet_error::{
         Error,
         ErrorType::{self, *},
     };
+    use bytes::BytesMut;
+    use httparse::Status;
 
     pub const INVALID_CHUNK: ErrorType = ErrorType::new("InvalidChunk");
     pub const INCOMPLETE_BODY: ErrorType = ErrorType::new("IncompleteHttpBody");

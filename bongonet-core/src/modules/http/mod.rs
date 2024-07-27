@@ -21,10 +21,10 @@
 pub mod compression;
 
 use async_trait::async_trait;
-use bytes::Bytes;
-use once_cell::sync::OnceCell;
 use bongonet_error::Result;
 use bongonet_http::{RequestHeader, ResponseHeader};
+use bytes::Bytes;
+use once_cell::sync::OnceCell;
 use std::any::Any;
 use std::any::TypeId;
 use std::collections::HashMap;
