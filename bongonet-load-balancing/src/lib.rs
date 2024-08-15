@@ -21,11 +21,11 @@
 #![allow(clippy::non_canonical_partial_ord_impl)]
 
 use arc_swap::ArcSwap;
-use bongonet_core::protocols::l4::socket::SocketAddr;
-use bongonet_error::{ErrorType, OrErr, Result};
 use derivative::Derivative;
 use futures::FutureExt;
 pub use http::Extensions;
+use bongonet_core::protocols::l4::socket::SocketAddr;
+use bongonet_error::{ErrorType, OrErr, Result};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeSet, HashMap};
 use std::hash::{Hash, Hasher};
@@ -77,12 +77,18 @@ impl Backend {
     /// Create a new [Backend] with `weight` 1. The function will try to parse
     ///  `addr` into a [std::net::SocketAddr].
     pub fn new(addr: &str) -> Result<Self> {
+        Self::new_with_weight(addr, 1)
+    }
+
+    /// Creates a new [Backend] with the specified `weight`. The function will try to parse
+    /// `addr` into a [std::net::SocketAddr].
+    pub fn new_with_weight(addr: &str, weight: usize) -> Result<Self> {
         let addr = addr
             .parse()
             .or_err(ErrorType::InternalError, "invalid socket addr")?;
         Ok(Backend {
             addr: SocketAddr::Inet(addr),
-            weight: 1,
+            weight,
             ext: Extensions::new(),
         })
         // TODO: UDS
@@ -247,8 +253,8 @@ impl Backends {
     /// When `parallel: true`, all backends are checked in parallel instead of sequentially
     pub async fn run_health_check(&self, parallel: bool) {
         use crate::health_check::HealthCheck;
-        use bongonet_runtime::current_handle;
         use log::{info, warn};
+        use bongonet_runtime::current_handle;
 
         async fn check_and_report(
             backend: &Backend,
@@ -260,6 +266,7 @@ impl Backends {
                 let flipped =
                     h.observe_health(errored.is_none(), check.health_threshold(errored.is_none()));
                 if flipped {
+                    check.health_status_change(backend, errored.is_none()).await;
                     if let Some(e) = errored {
                         warn!("{backend:?} becomes unhealthy, {e}");
                     } else {
