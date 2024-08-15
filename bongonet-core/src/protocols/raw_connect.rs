@@ -30,6 +30,17 @@ use http::request::Parts as ReqHeader;
 use http::Version;
 use tokio::io::AsyncWriteExt;
 
+use super::http::v1::client::HttpSession;
+use super::http::v1::common::*;
+use super::Stream;
+
+use bytes::{BufMut, BytesMut};
+use http::request::Parts as ReqHeader;
+use http::Version;
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
+use bongonet_http::ResponseHeader;
+use tokio::io::AsyncWriteExt;
+
 /// Try to establish a CONNECT proxy via the given `stream`.
 ///
 /// `request_header` should include the necessary request headers for the CONNECT protocol.
@@ -74,6 +85,7 @@ where
     } else {
         format!("{host}:{port}")
     };
+
     let req = http::request::Builder::new()
         .version(http::Version::HTTP_11)
         .method(http::method::Method::CONNECT)
@@ -220,7 +232,7 @@ mod test_sync {
         assert_eq!(req.headers.get("Host").unwrap(), "bongonet.org:123");
         assert_eq!(req.headers.get("foo").unwrap(), "bar");
     }
-    
+
     #[test]
     fn test_generate_connect_header_ipv6() {
         let mut headers = BTreeMap::new();
@@ -232,7 +244,7 @@ mod test_sync {
         assert_eq!(req.headers.get("Host").unwrap(), "[::1]:123");
         assert_eq!(req.headers.get("foo").unwrap(), "bar");
     }
-    
+
     #[test]
     fn test_request_to_wire_auth_form() {
         let new_request = http::Request::builder()
