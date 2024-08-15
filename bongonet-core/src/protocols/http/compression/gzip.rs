@@ -14,7 +14,7 @@
 
 use super::{Encode, COMPRESSION_ERROR};
 
-use bongonet_error::Result;
+use bytes::Bytes;
 use flate2::write::{GzDecoder, GzEncoder};
 use bongonet_error::{OrErr, Result};
 use std::io::Write;
@@ -129,6 +129,7 @@ impl DerefMut for Decompressor {
         &mut self.decompress
     }
 }
+
 impl Deref for Compressor {
     type Target = GzEncoder<Vec<u8>>;
 
@@ -163,7 +164,7 @@ mod tests_stream {
 
         assert!(compressor.get_ref().is_empty());
     }
-    
+
     #[test]
     fn gunzip_data() {
         let mut decompressor = Decompressor::new();
