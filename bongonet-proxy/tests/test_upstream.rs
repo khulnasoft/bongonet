@@ -1373,6 +1373,7 @@ mod test_cache {
                 .unwrap();
             assert_eq!(res.status(), StatusCode::OK);
             let headers = res.headers();
+            assert_eq!(headers["x-cache-status"], "stale-updating");
             assert_eq!(headers["x-cache-status"], "stale");
             assert_eq!(res.text().await.unwrap(), "hello world");
         });
@@ -1387,6 +1388,7 @@ mod test_cache {
                 .unwrap();
             assert_eq!(res.status(), StatusCode::OK);
             let headers = res.headers();
+            assert_eq!(headers["x-cache-status"], "stale-updating");
             assert_eq!(headers["x-cache-status"], "stale");
             assert_eq!(res.text().await.unwrap(), "hello world");
         });
@@ -1399,6 +1401,7 @@ mod test_cache {
                 .unwrap();
             assert_eq!(res.status(), StatusCode::OK);
             let headers = res.headers();
+            assert_eq!(headers["x-cache-status"], "stale-updating");
             assert_eq!(headers["x-cache-status"], "stale");
             assert_eq!(res.text().await.unwrap(), "hello world");
         });
