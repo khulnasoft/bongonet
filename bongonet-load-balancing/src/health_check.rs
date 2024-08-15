@@ -24,6 +24,9 @@ use bongonet_http::{RequestHeader, ResponseHeader};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// [HealthObserve] is an interface for observing health changes of backends,
+/// this is what's used for our health observation callback.
+
 /// [HealthCheck] is the interface to implement health check for backends
 #[async_trait]
 pub trait HealthCheck {
