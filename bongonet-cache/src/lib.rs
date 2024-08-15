@@ -16,11 +16,11 @@
 
 #![allow(clippy::new_without_default)]
 
-use bongonet_error::Result;
-use bongonet_http::ResponseHeader;
 use http::{method::Method, request::Parts as ReqHeader, response::Parts as RespHeader};
 use key::{CacheHashKey, HashBinary};
 use lock::WritePermit;
+use bongonet_error::Result;
+use bongonet_http::ResponseHeader;
 use std::time::{Duration, Instant, SystemTime};
 use trace::CacheTraceCTX;
 
@@ -263,7 +263,6 @@ impl HttpCache {
         use CachePhase::*;
         match self.phase {
             Disabled(_) | Bypass | Miss | Expired | Revalidated | RevalidatedNoCache(_) => true,
-            Hit | Stale => false,
             Hit | Stale | StaleUpdating => false,
             Uninit | CacheKey => false, // invalid states for this call, treat them as false to keep it simple
         }
@@ -495,8 +494,9 @@ impl HttpCache {
     /// Panic in other phases.
     pub fn cache_miss(&mut self) {
         match self.phase {
-            // from Stale: waited for cache lock, then retried and found asset was gone
+            // from CacheKey: set state to miss during cache lookup
             // from Bypass: response became cacheable, set state to miss to cache
+            // from Stale: waited for cache lock, then retried and found asset was gone
             CachePhase::CacheKey | CachePhase::Bypass | CachePhase::Stale => {
                 self.phase = CachePhase::Miss;
                 self.inner_mut().traces.start_miss_span();
@@ -798,7 +798,7 @@ impl HttpCache {
             _ => panic!("wrong phase {:?}", self.phase),
         }
     }
-    
+
     /// Update the variance of the [CacheMeta].
     ///
     /// Note that this process may change the lookup `key`, and eventually (when the asset is
@@ -867,6 +867,7 @@ impl HttpCache {
         match self.phase {
             // TODO: allow in Bypass phase?
             CachePhase::Stale
+            | CachePhase::StaleUpdating
             | CachePhase::Expired
             | CachePhase::Hit
             | CachePhase::Revalidated
@@ -895,6 +896,7 @@ impl HttpCache {
         match self.phase {
             CachePhase::Miss
             | CachePhase::Stale
+            | CachePhase::StaleUpdating
             | CachePhase::Expired
             | CachePhase::Hit
             | CachePhase::Revalidated
