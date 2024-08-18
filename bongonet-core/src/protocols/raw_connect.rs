@@ -22,18 +22,6 @@
 use super::http::v1::client::HttpSession;
 use super::http::v1::common::*;
 use super::Stream;
-
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
-use bongonet_http::ResponseHeader;
-use bytes::{BufMut, BytesMut};
-use http::request::Parts as ReqHeader;
-use http::Version;
-use tokio::io::AsyncWriteExt;
-
-use super::http::v1::client::HttpSession;
-use super::http::v1::common::*;
-use super::Stream;
-
 use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use bongonet_http::ResponseHeader;
 use bytes::{BufMut, BytesMut};
