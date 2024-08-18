@@ -77,12 +77,18 @@ impl Backend {
     /// Create a new [Backend] with `weight` 1. The function will try to parse
     ///  `addr` into a [std::net::SocketAddr].
     pub fn new(addr: &str) -> Result<Self> {
+        Self::new_with_weight(addr, 1)
+    }
+
+    /// Creates a new [Backend] with the specified `weight`. The function will try to parse
+    /// `addr` into a [std::net::SocketAddr].
+    pub fn new_with_weight(addr: &str, weight: usize) -> Result<Self> {
         let addr = addr
             .parse()
             .or_err(ErrorType::InternalError, "invalid socket addr")?;
         Ok(Backend {
             addr: SocketAddr::Inet(addr),
-            weight: 1,
+            weight,
             ext: Extensions::new(),
         })
         // TODO: UDS
@@ -260,6 +266,7 @@ impl Backends {
                 let flipped =
                     h.observe_health(errored.is_none(), check.health_threshold(errored.is_none()));
                 if flipped {
+                    check.health_status_change(backend, errored.is_none()).await;
                     if let Some(e) = errored {
                         warn!("{backend:?} becomes unhealthy, {e}");
                     } else {
