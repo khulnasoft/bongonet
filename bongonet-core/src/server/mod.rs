@@ -256,10 +256,7 @@ impl Server {
 
         /* only init sentry in release builds */
         #[cfg(not(debug_assertions))]
-        let _guard = match self.sentry.as_ref() {
-            Some(uri) => Some(sentry::init(uri.as_str())),
-            None => None,
-        };
+        let _guard = self.sentry.as_ref().map(|opts| sentry::init(opts.clone()));
 
         if self.options.as_ref().map_or(false, |o| o.test) {
             info!("Server Test passed, exiting");
@@ -303,10 +300,7 @@ impl Server {
 
         /* only init sentry in release builds */
         #[cfg(not(debug_assertions))]
-        let _guard = match self.sentry.as_ref() {
-            Some(uri) => Some(sentry::init(uri.as_str())),
-            None => None,
-        };
+        let _guard = self.sentry.as_ref().map(|opts| sentry::init(opts.clone()));
 
         let mut runtimes: Vec<Runtime> = Vec::new();
 

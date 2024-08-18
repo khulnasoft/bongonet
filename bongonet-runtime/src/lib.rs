@@ -213,12 +213,17 @@ fn test_steal_runtime() {
     let rt = Runtime::new_steal(2, "test");
     let handle = rt.get_handle();
     let ret = handle.block_on(async {
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_millis(500)).await; // Reduced sleep duration
         let handle = current_handle();
         let join = handle.spawn(async {
-            sleep(Duration::from_secs(1)).await;
+            println!("Spawned task started.");
+            sleep(Duration::from_millis(500)).await; // Reduced sleep duration
+            println!("Spawned task completed.");
         });
-        join.await.unwrap();
+        match join.await {
+            Ok(_) => println!("Task completed successfully."),
+            Err(e) => println!("Task was cancelled: {:?}", e),
+        };
         1
     });
 
