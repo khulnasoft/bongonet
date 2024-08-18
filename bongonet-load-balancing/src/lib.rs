@@ -21,11 +21,11 @@
 #![allow(clippy::non_canonical_partial_ord_impl)]
 
 use arc_swap::ArcSwap;
+use bongonet_core::protocols::l4::socket::SocketAddr;
+use bongonet_error::{ErrorType, OrErr, Result};
 use derivative::Derivative;
 use futures::FutureExt;
 pub use http::Extensions;
-use bongonet_core::protocols::l4::socket::SocketAddr;
-use bongonet_error::{ErrorType, OrErr, Result};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeSet, HashMap};
 use std::hash::{Hash, Hasher};
@@ -253,8 +253,8 @@ impl Backends {
     /// When `parallel: true`, all backends are checked in parallel instead of sequentially
     pub async fn run_health_check(&self, parallel: bool) {
         use crate::health_check::HealthCheck;
-        use log::{info, warn};
         use bongonet_runtime::current_handle;
+        use log::{info, warn};
 
         async fn check_and_report(
             backend: &Backend,

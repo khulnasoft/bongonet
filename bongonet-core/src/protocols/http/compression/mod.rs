@@ -18,11 +18,11 @@
 
 use super::HttpTask;
 
+use bongonet_error::{ErrorType, Result};
+use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use http::header::ACCEPT_RANGES;
 use log::warn;
-use bongonet_error::{ErrorType, Result};
-use bongonet_http::{RequestHeader, ResponseHeader};
 use std::time::Duration;
 
 use strum::EnumCount;

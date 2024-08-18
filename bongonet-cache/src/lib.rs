@@ -16,11 +16,11 @@
 
 #![allow(clippy::new_without_default)]
 
+use bongonet_error::Result;
+use bongonet_http::ResponseHeader;
 use http::{method::Method, request::Parts as ReqHeader, response::Parts as RespHeader};
 use key::{CacheHashKey, HashBinary};
 use lock::WritePermit;
-use bongonet_error::Result;
-use bongonet_http::ResponseHeader;
 use std::time::{Duration, Instant, SystemTime};
 use trace::CacheTraceCTX;
 
