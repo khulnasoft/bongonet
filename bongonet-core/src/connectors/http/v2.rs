@@ -19,12 +19,12 @@ use crate::protocols::http::v2::client::{drive_connection, Http2Session};
 use crate::protocols::{Digest, Stream, UniqueIDType};
 use crate::upstreams::peer::{Peer, ALPN};
 
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
+use bongonet_pool::{ConnectionMeta, ConnectionPool, PoolNode};
 use bytes::Bytes;
 use h2::client::SendRequest;
 use log::debug;
 use parking_lot::{Mutex, RwLock};
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
-use bongonet_pool::{ConnectionMeta, ConnectionPool, PoolNode};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
