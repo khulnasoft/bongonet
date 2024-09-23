@@ -2,8 +2,6 @@
 
 Bongonet is a Rust framework to [build fast, reliable and programmable networked systems](https://blog.khulnasoft.com/bongonet-open-source).
 
-Bongonet is battle tested as it has been serving more than 40 million Internet requests per second for [more than a few years](https://blog.khulnasoft.com/how-we-built-bongonet-the-proxy-that-connects-khulnasoft-to-the-internet).
-
 ## Feature highlights
 * Async Rust: fast and reliable
 * HTTP 1/2 end to end proxy
