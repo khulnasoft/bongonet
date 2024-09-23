@@ -1166,7 +1166,10 @@ mod tests_stream {
         assert_eq!(b"/", http_stream.get_path());
         assert_eq!(Version::HTTP_11, http_stream.req_header().version);
 
-        assert_eq!(b"bongonet.khulnasoft.com", http_stream.get_header_bytes("Host"));
+        assert_eq!(
+            b"bongonet.khulnasoft.com", 
+            http_stream.get_header_bytes("Host")
+        );
     }
 
     #[tokio::test]
@@ -1357,28 +1360,32 @@ mod tests_stream {
     #[tokio::test]
     async fn read_upgrade_req() {
         // http 1.0
-        let input = b"GET / HTTP/1.0\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
+        let input = 
+            b"GET / HTTP/1.0\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
         assert!(!http_stream.is_upgrade_req());
 
         // different method
-        let input = b"POST / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
+        let input = 
+            b"POST / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
         assert!(http_stream.is_upgrade_req());
 
         // missing upgrade header
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nConnection: upgrade\r\n\r\n";
+        let input = 
+            b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nConnection: upgrade\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
         assert!(!http_stream.is_upgrade_req());
 
         // no connection header
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: WebSocket\r\n\r\n";
+        let input = 
+            b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: WebSocket\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
