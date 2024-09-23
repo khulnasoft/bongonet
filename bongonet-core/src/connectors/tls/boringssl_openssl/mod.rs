@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use log::debug;
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use std::sync::{Arc, Once};
 
-use super::ConnectorOptions;
-use crate::protocols::ssl::client::handshake;
-use crate::protocols::ssl::SslStream;
+use crate::connectors::ConnectorOptions;
+use crate::protocols::tls::client::handshake;
+use crate::protocols::tls::SslStream;
 use crate::protocols::IO;
 use crate::tls::ext::{
     add_host, clear_error_stack, ssl_add_chain_cert, ssl_set_groups_list,

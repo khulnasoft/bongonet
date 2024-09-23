@@ -15,9 +15,9 @@
 use super::Encode;
 use super::COMPRESSION_ERROR;
 
-use bongonet_error::{OrErr, Result};
 use brotli::{CompressorWriter, DecompressorWriter};
 use bytes::Bytes;
+use bongonet_error::{OrErr, Result};
 use std::io::Write;
 use std::time::{Duration, Instant};
 

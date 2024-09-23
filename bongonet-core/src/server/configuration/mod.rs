@@ -19,9 +19,9 @@
 //! * Number of threads per service
 //! * Error log file path
 
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use clap::Parser;
 use log::{debug, trace};
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
@@ -118,7 +118,7 @@ impl Default for ServerConf {
 
 /// Command-line options
 ///
-/// Call `Opt::from_args()` to build this object from the process's command line arguments.
+/// Call `Opt::parse_args()` to build this object from the process's command line arguments.
 #[derive(Parser, Debug, Default)]
 #[clap(name = "basic", long_about = None)]
 pub struct Opt {

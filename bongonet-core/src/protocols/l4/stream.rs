@@ -15,9 +15,9 @@
 //! Transport layer connection
 
 use async_trait::async_trait;
-use bongonet_error::{ErrorType::*, OrErr, Result};
 use futures::FutureExt;
 use log::{debug, error};
+use bongonet_error::{ErrorType::*, OrErr, Result};
 use std::os::unix::io::AsRawFd;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -30,7 +30,7 @@ use crate::protocols::l4::ext::{set_tcp_keepalive, TcpKeepalive};
 use crate::protocols::raw_connect::ProxyDigest;
 use crate::protocols::{
     GetProxyDigest, GetSocketDigest, GetTimingDigest, Shutdown, SocketDigest, Ssl, TimingDigest,
-    UniqueID,
+    UniqueID, UniqueIDType,
 };
 use crate::upstreams::peer::Tracer;
 
@@ -202,7 +202,7 @@ impl AsRawFd for Stream {
 }
 
 impl UniqueID for Stream {
-    fn id(&self) -> i32 {
+    fn id(&self) -> UniqueIDType {
         self.as_raw_fd()
     }
 }

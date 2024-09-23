@@ -18,8 +18,8 @@
 // TODO: move below to its own mod
 use crate::tls::{nid::Nid, pkey::PKey, pkey::Private, x509::X509};
 use crate::Result;
-use bongonet_error::{ErrorType::*, OrErr};
 use bytes::Bytes;
+use bongonet_error::{ErrorType::*, OrErr};
 use std::hash::{Hash, Hasher};
 
 /// A `BufRef` is a reference to a buffer of bytes. It removes the need for self-referential data

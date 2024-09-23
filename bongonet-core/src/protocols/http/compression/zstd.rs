@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use super::{Encode, COMPRESSION_ERROR};
-use bongonet_error::{OrErr, Result};
 use bytes::Bytes;
 use parking_lot::Mutex;
+use bongonet_error::{OrErr, Result};
 use std::io::Write;
 use std::time::{Duration, Instant};
 use zstd::stream::write::Encoder;

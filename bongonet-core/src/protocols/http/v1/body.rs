@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use log::{debug, trace, warn};
 use bongonet_error::{
     Error,
     ErrorType::{self, *},
     OrErr, Result,
 };
-use bytes::{Buf, BufMut, Bytes, BytesMut};
-use log::{debug, trace, warn};
 use std::fmt::Debug;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 

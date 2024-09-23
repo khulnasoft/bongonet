@@ -14,9 +14,9 @@
 
 //! Error response generating utilities.
 
-use bongonet_http::ResponseHeader;
 use http::header;
 use once_cell::sync::Lazy;
+use bongonet_http::ResponseHeader;
 
 use super::SERVER_NAME;
 

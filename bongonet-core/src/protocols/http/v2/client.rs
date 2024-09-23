@@ -15,14 +15,14 @@
 //! HTTP/2 client session and connection
 // TODO: this module needs a refactor
 
-use bongonet_error::{Error, ErrorType, ErrorType::*, OrErr, Result, RetryType};
-use bongonet_http::{RequestHeader, ResponseHeader};
-use bongonet_timeout::timeout;
 use bytes::Bytes;
 use h2::client::{self, ResponseFuture, SendRequest};
 use h2::{Reason, RecvStream, SendStream};
 use http::HeaderMap;
 use log::{debug, error, warn};
+use bongonet_error::{Error, ErrorType, ErrorType::*, OrErr, Result, RetryType};
+use bongonet_http::{RequestHeader, ResponseHeader};
+use bongonet_timeout::timeout;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,7 +30,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::watch;
 
 use crate::connectors::http::v2::ConnectionRef;
-use crate::protocols::{Digest, SocketAddr};
+use crate::protocols::{Digest, SocketAddr, UniqueIDType};
 
 pub const PING_TIMEDOUT: ErrorType = ErrorType::new("PingTimedout");
 
@@ -336,7 +336,7 @@ impl Http2Session {
     }
 
     /// the FD of the underlying connection
-    pub fn fd(&self) -> i32 {
+    pub fn fd(&self) -> UniqueIDType {
         self.conn.id()
     }
 
@@ -406,7 +406,6 @@ fn handle_read_header_error(e: h2::Error) -> Box<Error> {
         && e.reason().map_or(false, |r| r == h2::Reason::NO_ERROR)
     {
         // is_go_away: retry via another connection, this connection is being teardown
-        // only retry if the connection is reused
         let mut err = Error::because(H2Error, "while reading h2 header", e);
         err.retry = true.into();
         err
@@ -428,7 +427,7 @@ use tokio::sync::oneshot;
 
 pub async fn drive_connection<S>(
     mut c: client::Connection<S>,
-    id: i32,
+    id: UniqueIDType,
     closed: watch::Sender<bool>,
     ping_interval: Option<Duration>,
     ping_timeout_occurred: Arc<AtomicBool>,
@@ -482,7 +481,7 @@ async fn do_ping_pong(
     interval: Duration,
     tx: oneshot::Sender<()>,
     dropped: Arc<AtomicBool>,
-    id: i32,
+    id: UniqueIDType,
 ) {
     // delay before sending the first ping, no need to race with the first request
     tokio::time::sleep(interval).await;

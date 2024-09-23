@@ -156,7 +156,7 @@ async fn test_async_cert() {
         async fn certificate_callback(&self, ssl: &mut SslRef) -> () {
             assert_eq!(
                 ssl.servername(ssl::NameType::HOST_NAME).unwrap(),
-                "bongonet.khulnasoft.com"
+                "bongonet.org"
             );
             let cert = format!("{}/tests/keys/server.crt", env!("CARGO_MANIFEST_DIR"));
             let key = format!("{}/tests/keys/key.pem", env!("CARGO_MANIFEST_DIR"));
@@ -180,7 +180,7 @@ async fn test_async_cert() {
             .unwrap()
             .build();
         let mut ssl = ssl::Ssl::new(&ssl_context).unwrap();
-        ssl.set_hostname("bongonet.khulnasoft.com").unwrap();
+        ssl.set_hostname("bongonet.org").unwrap();
         ssl.set_verify(ssl::SslVerifyMode::NONE); // we don have a valid cert
         let mut stream = SslStream::new(ssl, client).unwrap();
         Pin::new(&mut stream).connect().await.unwrap();

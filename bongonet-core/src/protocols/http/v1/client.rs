@@ -14,12 +14,12 @@
 
 //! HTTP/1.x client session
 
-use bongonet_error::{Error, ErrorType::*, OrErr, Result, RetryType};
-use bongonet_http::{HMap, IntoCaseHeaderName, RequestHeader, ResponseHeader};
-use bongonet_timeout::timeout;
 use bytes::{BufMut, Bytes, BytesMut};
 use http::{header, header::AsHeaderName, HeaderValue, StatusCode, Version};
 use log::{debug, trace};
+use bongonet_error::{Error, ErrorType::*, OrErr, Result, RetryType};
+use bongonet_http::{HMap, IntoCaseHeaderName, RequestHeader, ResponseHeader};
+use bongonet_timeout::timeout;
 use std::io::ErrorKind;
 use std::str;
 use std::time::Duration;
@@ -28,7 +28,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use super::body::{BodyReader, BodyWriter};
 use super::common::*;
 use crate::protocols::http::HttpTask;
-use crate::protocols::{Digest, SocketAddr, Stream, UniqueID};
+use crate::protocols::{Digest, SocketAddr, Stream, UniqueID, UniqueIDType};
 use crate::utils::{BufRef, KVRef};
 
 /// The HTTP 1.x client session
@@ -717,7 +717,7 @@ pub(crate) fn http_req_header_to_wire(req: &RequestHeader) -> Option<BytesMut> {
 }
 
 impl UniqueID for HttpSession {
-    fn id(&self) -> i32 {
+    fn id(&self) -> UniqueIDType {
         self.underlying_stream.id()
     }
 }

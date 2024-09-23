@@ -15,7 +15,7 @@
 //! Connecting to servers
 
 pub mod http;
-mod l4;
+pub mod l4;
 mod offload;
 mod tls;
 
@@ -24,13 +24,13 @@ use crate::server::configuration::ServerConf;
 use crate::tls::ssl::SslConnector;
 use crate::upstreams::peer::{Peer, ALPN};
 
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
-use bongonet_pool::{ConnectionMeta, ConnectionPool};
-use l4::connect as l4_connect;
 pub use l4::Connect as L4Connect;
+use l4::{connect as l4_connect, BindTo};
 use log::{debug, error, warn};
 use offload::OffloadRuntime;
 use parking_lot::RwLock;
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
+use bongonet_pool::{ConnectionMeta, ConnectionPool};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -273,7 +273,7 @@ impl TransportConnector {
 // connection timeout if there is one
 async fn do_connect<P: Peer + Send + Sync>(
     peer: &P,
-    bind_to: Option<SocketAddr>,
+    bind_to: Option<BindTo>,
     alpn_override: Option<ALPN>,
     tls_ctx: &SslConnector,
 ) -> Result<Stream> {
@@ -296,7 +296,7 @@ async fn do_connect<P: Peer + Send + Sync>(
 // Perform the actual L4 and tls connection steps with no timeout
 async fn do_connect_inner<P: Peer + Send + Sync>(
     peer: &P,
-    bind_to: Option<SocketAddr>,
+    bind_to: Option<BindTo>,
     alpn_override: Option<ALPN>,
     tls_ctx: &SslConnector,
 ) -> Result<Stream> {
@@ -365,6 +365,7 @@ fn test_reusable_stream(stream: &mut Stream) -> bool {
 }
 
 #[cfg(test)]
+#[cfg(feature = "some_tls")]
 mod tests {
     use bongonet_error::ErrorType;
 

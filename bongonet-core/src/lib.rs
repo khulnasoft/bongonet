@@ -58,6 +58,9 @@ pub use bongonet_boringssl as tls;
 #[cfg(all(not(feature = "boringssl"), feature = "openssl"))]
 pub use bongonet_openssl as tls;
 
+#[cfg(not(feature = "some_tls"))]
+pub use protocols::tls::dummy_tls as tls;
+
 pub mod prelude {
     pub use crate::server::configuration::Opt;
     pub use crate::server::Server;

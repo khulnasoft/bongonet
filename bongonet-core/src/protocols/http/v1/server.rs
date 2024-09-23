@@ -14,9 +14,6 @@
 
 //! HTTP/1.x server session
 
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
-use bongonet_http::{IntoCaseHeaderName, RequestHeader, ResponseHeader};
-use bongonet_timeout::timeout;
 use bytes::Bytes;
 use bytes::{BufMut, BytesMut};
 use http::HeaderValue;
@@ -24,6 +21,9 @@ use http::{header, header::AsHeaderName, Method, Version};
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
 use percent_encoding::{percent_encode, AsciiSet, CONTROLS};
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
+use bongonet_http::{IntoCaseHeaderName, RequestHeader, ResponseHeader};
+use bongonet_timeout::timeout;
 use regex::bytes::Regex;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -319,7 +319,7 @@ impl HttpSession {
             .map_or(b"", |h| h.as_bytes())
     }
 
-    /// Return a string `$METHOD $PATH $HOST`. Mostly for logging and debug purpose
+    /// Return a string `$METHOD $PATH, Host: $HOST`. Mostly for logging and debug purpose
     pub fn request_summary(&self) -> String {
         format!(
             "{} {}, Host: {}",
@@ -1710,9 +1710,8 @@ mod tests_stream {
         );
 
         // empty uri, unable to parse
-        let input = BytesMut::from(
-            &b"GET  HTTP/1.1\r\nHost: bongonet.org\r\nContent-Length: 3\r\n\r\n"[..],
-        );
+        let input =
+            BytesMut::from(&b"GET  HTTP/1.1\r\nHost: bongonet.org\r\nContent-Length: 3\r\n\r\n"[..]);
         assert!(escape_illegal_request_line(&input).is_none());
     }
 
