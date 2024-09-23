@@ -19,9 +19,9 @@
 //! * Number of threads per service
 //! * Error log file path
 
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use clap::Parser;
 use log::{debug, trace};
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 

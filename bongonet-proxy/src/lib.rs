@@ -36,12 +36,12 @@
 //! See `examples/load_balancer.rs` for a detailed example.
 
 use async_trait::async_trait;
+use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use futures::future::FutureExt;
 use http::{header, version::Version};
 use log::{debug, error, trace, warn};
 use once_cell::sync::Lazy;
-use bongonet_http::{RequestHeader, ResponseHeader};
 use std::fmt::Debug;
 use std::str;
 use std::sync::Arc;
@@ -405,7 +405,20 @@ impl Session {
                     self.downstream_modules_ctx
                         .response_body_filter(data, *end)?;
                 }
-                _ => { /* HttpModules doesn't handle trailer yet */ }
+                HttpTask::Trailer(trailers) => {
+                    if let Some(buf) = self
+                        .downstream_modules_ctx
+                        .response_trailer_filter(trailers)?
+                    {
+                        // Write the trailers into the body if the filter
+                        // returns a buffer.
+                        //
+                        // Note, this will not work if end of stream has already
+                        // been seen or we've written content-length bytes.
+                        *task = HttpTask::Body(Some(buf), true);
+                    }
+                }
+                _ => { /* Done or Failed */ }
             }
         }
         self.downstream_session.response_duplex_vec(tasks).await
@@ -607,6 +620,8 @@ impl<SV> HttpProxy<SV> {
         };
 
         if let Some(e) = final_error.as_ref() {
+            // If we have errored and are still holding a cache lock, release it.
+            session.cache.disable(NoCacheReason::InternalError);
             let status = self.inner.fail_to_proxy(&mut session, e, &mut ctx).await;
 
             // final error will have > 0 status unless downstream connection is dead

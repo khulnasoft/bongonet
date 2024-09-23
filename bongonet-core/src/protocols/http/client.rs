@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bytes::Bytes;
 use bongonet_error::Result;
 use bongonet_http::{RequestHeader, ResponseHeader};
+use bytes::Bytes;
 use std::time::Duration;
 
 use super::v1::client::HttpSession as Http1Session;

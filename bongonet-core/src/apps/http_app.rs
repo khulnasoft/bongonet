@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! A simple HTTP application trait that maps a request to a response
+//! The abstraction and implementation interface for service application logic
 
 use async_trait::async_trait;
+use bongonet_http::ResponseHeader;
 use http::Response;
 use log::{debug, error, trace};
-use bongonet_http::ResponseHeader;
 use std::sync::Arc;
 
 use crate::apps::HttpServerApp;
