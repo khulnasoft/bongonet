@@ -14,12 +14,12 @@
 
 //! HTTP/1.x client session
 
-use bytes::{BufMut, Bytes, BytesMut};
-use http::{header, header::AsHeaderName, HeaderValue, StatusCode, Version};
-use log::{debug, trace};
 use bongonet_error::{Error, ErrorType::*, OrErr, Result, RetryType};
 use bongonet_http::{HMap, IntoCaseHeaderName, RequestHeader, ResponseHeader};
 use bongonet_timeout::timeout;
+use bytes::{BufMut, Bytes, BytesMut};
+use http::{header, header::AsHeaderName, HeaderValue, StatusCode, Version};
+use log::{debug, trace};
 use std::io::ErrorKind;
 use std::str;
 use std::time::Duration;

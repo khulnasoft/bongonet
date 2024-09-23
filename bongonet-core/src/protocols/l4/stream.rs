@@ -15,9 +15,9 @@
 //! Transport layer connection
 
 use async_trait::async_trait;
+use bongonet_error::{ErrorType::*, OrErr, Result};
 use futures::FutureExt;
 use log::{debug, error};
-use bongonet_error::{ErrorType::*, OrErr, Result};
 use std::os::unix::io::AsRawFd;
 use std::pin::Pin;
 use std::sync::Arc;
