@@ -14,10 +14,6 @@
 
 use super::cert;
 use async_trait::async_trait;
-use clap::Parser;
-use http::header::VARY;
-use http::HeaderValue;
-use once_cell::sync::Lazy;
 use bongonet_cache::cache_control::CacheControl;
 use bongonet_cache::key::HashBinary;
 use bongonet_cache::VarianceBuilder;
@@ -36,6 +32,10 @@ use bongonet_core::utils::CertKey;
 use bongonet_error::{Error, ErrorSource, Result};
 use bongonet_http::{RequestHeader, ResponseHeader};
 use bongonet_proxy::{ProxyHttp, Session};
+use clap::Parser;
+use http::header::VARY;
+use http::HeaderValue;
+use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
