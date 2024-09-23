@@ -53,7 +53,6 @@ impl DirectiveValue {
         self.0
             .strip_prefix(b"\"")
             .and_then(|bytes| bytes.strip_suffix(b"\""))
-
             .unwrap_or(&self.0[..])
     }
 
