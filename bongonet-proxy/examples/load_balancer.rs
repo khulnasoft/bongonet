@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use async_trait::async_trait;
-use bongonet_core::services::background::background_service;
 use clap::Parser;
 use log::info;
+use bongonet_core::services::background::background_service;
 use std::{sync::Arc, time::Duration};
 
 use bongonet_core::server::configuration::Opt;
