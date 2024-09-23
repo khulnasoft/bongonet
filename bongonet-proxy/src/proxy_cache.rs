@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use http::StatusCode;
 use bongonet_cache::key::CacheHashKey;
 use bongonet_cache::lock::LockStatus;
 use bongonet_cache::max_file_size::ERR_RESPONSE_TOO_LARGE;
@@ -20,7 +21,6 @@ use bongonet_cache::{HitStatus, RespCacheable::*};
 use bongonet_core::protocols::http::conditional_filter::to_304;
 use bongonet_core::protocols::http::v1::common::header_value_content_length;
 use bongonet_core::ErrorType;
-use http::StatusCode;
 
 impl<SV> HttpProxy<SV> {
     // return bool: server_session can be reused, and error if any
