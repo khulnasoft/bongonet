@@ -28,7 +28,7 @@ pub mod v2;
 pub use server::Session as ServerSession;
 
 /// The Bongonet server name string
-pub const SERVER_NAME: &[u8; 7] = b"Bongonet";
+pub const SERVER_NAME: &[u8; 8] = b"Bongonet";
 
 /// An enum to hold all possible HTTP response events.
 #[derive(Debug)]
