@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
 // TODO: move below to its own mod
 use crate::tls::{nid::Nid, pkey::PKey, pkey::Private, x509::X509};
 use crate::Result;
-use bytes::Bytes;
 use bongonet_error::{ErrorType::*, OrErr};
+use bytes::Bytes;
 use std::hash::{Hash, Hasher};
 
 /// A `BufRef` is a reference to a buffer of bytes. It removes the need for self-referential data

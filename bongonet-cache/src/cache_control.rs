@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,8 +51,8 @@ impl DirectiveValue {
     /// A [DirectiveValue] without quotes (`"`).
     pub fn parse_as_bytes(&self) -> &[u8] {
         self.0
-            .strip_prefix(b"\"")
-            .and_then(|bytes| bytes.strip_suffix(b"\""))
+            .strip_prefix(&[b'"'])
+            .and_then(|bytes| bytes.strip_suffix(&[b'"']))
             .unwrap_or(&self.0[..])
     }
 

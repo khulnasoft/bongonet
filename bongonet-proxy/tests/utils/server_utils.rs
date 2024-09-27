@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -397,6 +397,19 @@ impl ProxyHttp for ExampleProxyCache {
         }
 
         Ok(())
+    }
+
+    async fn cache_hit_filter(
+        &self,
+        session: &Session,
+        _meta: &CacheMeta,
+        _ctx: &mut Self::CTX,
+    ) -> Result<bool> {
+        // allow test header to control force expiry
+        if session.get_header_bytes("x-force-expire") != b"" {
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     fn cache_vary_filter(

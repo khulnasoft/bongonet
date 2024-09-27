@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use log::warn;
 use bongonet_error::{
     ErrorType::{AcceptError, BindError},
     OrErr, Result,
 };
+use log::warn;
 use std::fs::Permissions;
 use std::io::ErrorKind;
 use std::net::{SocketAddr, ToSocketAddrs};
@@ -85,8 +85,8 @@ pub struct TcpSocketOptions {
 mod uds {
     use super::{OrErr, Result};
     use crate::protocols::l4::listener::Listener;
-    use log::{debug, error};
     use bongonet_error::ErrorType::BindError;
+    use log::{debug, error};
     use std::fs::{self, Permissions};
     use std::io::ErrorKind;
     use std::os::unix::fs::PermissionsExt;

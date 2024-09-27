@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use async_trait::async_trait;
+use bongonet_core::services::background::background_service;
 use clap::Parser;
 use log::info;
-use bongonet_core::services::background::background_service;
 use std::{sync::Arc, time::Duration};
 
 use bongonet_core::server::configuration::Opt;

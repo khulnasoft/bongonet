@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,14 @@
 //! HTTP/2 client session and connection
 // TODO: this module needs a refactor
 
+use bongonet_error::{Error, ErrorType, ErrorType::*, OrErr, Result, RetryType};
+use bongonet_http::{RequestHeader, ResponseHeader};
+use bongonet_timeout::timeout;
 use bytes::Bytes;
 use h2::client::{self, ResponseFuture, SendRequest};
 use h2::{Reason, RecvStream, SendStream};
 use http::HeaderMap;
 use log::{debug, error, warn};
-use bongonet_error::{Error, ErrorType, ErrorType::*, OrErr, Result, RetryType};
-use bongonet_http::{RequestHeader, ResponseHeader};
-use bongonet_timeout::timeout;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;

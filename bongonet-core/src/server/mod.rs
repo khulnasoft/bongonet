@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ pub mod configuration;
 mod daemon;
 pub(crate) mod transfer_fd;
 
-use daemon::daemonize;
-use log::{debug, error, info, warn};
 use bongonet_runtime::Runtime;
 use bongonet_timeout::fast_timeout;
+use daemon::daemonize;
+use log::{debug, error, info, warn};
 use sentry::ClientOptions;
 use std::sync::Arc;
 use std::thread;

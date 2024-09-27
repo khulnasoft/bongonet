@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use log::debug;
 use bongonet_error::{ErrorType, OrErr, Result};
+use log::debug;
 use std::ops::{Deref, DerefMut};
 
 use crate::protocols::tls::{

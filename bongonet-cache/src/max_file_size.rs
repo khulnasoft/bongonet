@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,5 +71,9 @@ impl HandleMiss for MaxFileSizeMissHandler {
 
     async fn finish(self: Box<Self>) -> bongonet_error::Result<usize> {
         self.inner.finish().await
+    }
+
+    fn streaming_write_tag(&self) -> Option<&[u8]> {
+        self.inner.streaming_write_tag()
     }
 }

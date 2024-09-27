@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 //! HTTP/2 server session
 
+use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use futures::Future;
 use h2::server;
@@ -23,7 +24,6 @@ use http::header::HeaderName;
 use http::uri::PathAndQuery;
 use http::{header, HeaderMap, Response};
 use log::{debug, warn};
-use bongonet_http::{RequestHeader, ResponseHeader};
 use std::sync::Arc;
 
 use crate::protocols::http::body_buffer::FixedBuffer;

@@ -1,7 +1,7 @@
 [package]
 name = "bongonet-pool"
 version = "0.3.0"
-authors = ["KhulnaSoft DevOps <info@khulnasoft.com>"]
+authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
 license = "Apache-2.0"
 edition = "2021"
 repository = "https://github.com/khulnasoft/bongonet"

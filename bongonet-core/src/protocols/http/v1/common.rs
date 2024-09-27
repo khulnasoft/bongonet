@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 //! Common functions and constants
 
+use bongonet_http::{HMap, RequestHeader, ResponseHeader};
 use http::{header, HeaderValue};
 use log::warn;
-use bongonet_http::{HMap, RequestHeader, ResponseHeader};
 use std::str;
 use std::time::Duration;
 

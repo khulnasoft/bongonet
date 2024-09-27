@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bytes::Bytes;
 use bongonet_error::Result;
 use bongonet_http::{RequestHeader, ResponseHeader};
+use bytes::Bytes;
 use std::time::Duration;
 
 use super::v1::client::HttpSession as Http1Session;

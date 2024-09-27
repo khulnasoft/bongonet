@@ -1,11 +1,31 @@
+# **RateLimiter quickstart**
+
+Bongonet provides a crate `bongonet-limits` which provides a simple and easy to use rate limiter for your application. Below is an example of how you can use [`Rate`](https://docs.rs/bongonet-limits/latest/bongonet_limits/rate/struct.Rate.html) to create an application that uses multiple limiters to restrict the rate at which requests can be made on a per-app basis (determined by a request header).
+
+## Steps
+
+1. Add the following dependencies to your `Cargo.toml`:
+   ```toml
+   async-trait="0.1"
+   bongonet = { version = "0.3", features = [ "lb" ] }
+   bongonet-limits = "0.3.0"
+   once_cell = "1.19.0"
+   ```
+2. Declare a global rate limiter map to store the rate limiter for each client. In this example, we use `appid`.
+3. Override the `request_filter` method in the `ProxyHttp` trait to implement rate limiting.
+   1. Retrieve the client appid from header.
+   2. Retrieve the current window requests from the rate limiter map. If there is no rate limiter for the client, create a new one and insert it into the map.
+   3. If the current window requests exceed the limit, return 429 and set RateLimiter associated headers.
+   4. If the request is not rate limited, return `Ok(false)` to continue the request.
+
+## Example
+
+```rust
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
-use bongonet_core::prelude::*;
-use bongonet_http::{RequestHeader, ResponseHeader};
+use bongonet::http::ResponseHeader;
+use bongonet::prelude::*;
 use bongonet_limits::rate::Rate;
-use bongonet_load_balancing::prelude::{RoundRobin, TcpHealthCheck};
-use bongonet_load_balancing::LoadBalancer;
-use bongonet_proxy::{http_proxy_service, ProxyHttp, Session};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -115,3 +135,38 @@ impl ProxyHttp for LB {
         Ok(false)
     }
 }
+```
+
+## Testing
+
+To use the example above,
+
+1. Run your program with `cargo run`.
+2. Verify the program is working with a few executions of ` curl localhost:6188 -H "appid:1" -v`
+   - The first request should work and any later requests that arrive within 1s of a previous request should fail with:
+     ```
+     *   Trying 127.0.0.1:6188...
+     * Connected to localhost (127.0.0.1) port 6188 (#0)
+     > GET / HTTP/1.1
+     > Host: localhost:6188
+     > User-Agent: curl/7.88.1
+     > Accept: */*
+     > appid:1
+     >
+     < HTTP/1.1 429 Too Many Requests
+     < X-Rate-Limit-Limit: 1
+     < X-Rate-Limit-Remaining: 0
+     < X-Rate-Limit-Reset: 1
+     < Date: Sun, 14 Jul 2024 20:29:02 GMT
+     < Connection: close
+     <
+     * Closing connection 0
+     ```
+
+## Complete Example
+
+You can run the pre-made example code in the [`bongonet-proxy` examples folder](https://github.com/khulnasoft/bongonet/tree/main/bongonet-proxy/examples/rate_limiter.rs) with
+
+```
+cargo run --example rate_limiter
+```
