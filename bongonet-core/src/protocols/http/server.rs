@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@ use super::v1::server::HttpSession as SessionV1;
 use super::v2::server::HttpSession as SessionV2;
 use super::HttpTask;
 use crate::protocols::{Digest, SocketAddr, Stream};
+use bongonet_error::Result;
+use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use http::HeaderValue;
 use http::{header::AsHeaderName, HeaderMap};
 use log::error;
-use bongonet_error::Result;
-use bongonet_http::{RequestHeader, ResponseHeader};
 use std::time::Duration;
 
 /// HTTP server session object for both HTTP/1.x and HTTP/2

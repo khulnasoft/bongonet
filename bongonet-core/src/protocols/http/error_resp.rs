@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 //! Error response generating utilities.
 
+use bongonet_http::ResponseHeader;
 use http::header;
 use once_cell::sync::Lazy;
-use bongonet_http::ResponseHeader;
 
 use super::SERVER_NAME;
 

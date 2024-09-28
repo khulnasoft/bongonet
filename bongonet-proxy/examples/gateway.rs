@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ fn main() {
     let mut my_proxy = bongonet_proxy::http_proxy_service(
         &my_server.configuration,
         MyGateway {
-            req_metric: register_int_counter!("reg_counter", "Number of requests").unwrap(),
+            req_metric: register_int_counter!("req_counter", "Number of requests").unwrap(),
         },
     );
     my_proxy.add_tcp("0.0.0.0:6191");

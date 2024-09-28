@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 //! HTTP/1.x and HTTP/2 implementation APIs
 
 mod body_buffer;
+pub mod bridge;
 pub mod client;
 pub mod compression;
 pub mod conditional_filter;
@@ -27,7 +28,7 @@ pub mod v2;
 pub use server::Session as ServerSession;
 
 /// The Bongonet server name string
-pub const SERVER_NAME: &[u8; 6] = b"Bongon"; // Adjust the string as needed
+pub const SERVER_NAME: &[u8; 8] = b"Bongonet";
 
 /// An enum to hold all possible HTTP response events.
 #[derive(Debug)]

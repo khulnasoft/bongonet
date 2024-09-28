@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 use super::HttpTask;
 
-use bytes::Bytes;
-use log::warn;
 use bongonet_error::{ErrorType, Result};
 use bongonet_http::{RequestHeader, ResponseHeader};
+use bytes::Bytes;
+use log::warn;
 use std::time::Duration;
 
 use strum::EnumCount;

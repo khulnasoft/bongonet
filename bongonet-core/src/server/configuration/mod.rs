@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 //! * Number of threads per service
 //! * Error log file path
 
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use clap::Parser;
 use log::{debug, trace};
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 

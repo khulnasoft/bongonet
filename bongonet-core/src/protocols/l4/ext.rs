@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #![allow(non_camel_case_types)]
 
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use libc::socklen_t;
 #[cfg(target_os = "linux")]
 use libc::{c_int, c_ulonglong, c_void};
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use std::io::{self, ErrorKind};
 use std::mem;
 use std::net::SocketAddr;

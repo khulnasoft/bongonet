@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@
 //! See the [ResponseCompression] module for an example of how to implement a basic module.
 
 pub mod compression;
+pub mod grpc_web;
 
 use async_trait::async_trait;
-use bytes::Bytes;
-use once_cell::sync::OnceCell;
 use bongonet_error::Result;
 use bongonet_http::{RequestHeader, ResponseHeader};
+use bytes::Bytes;
+use http::HeaderMap;
+use once_cell::sync::OnceCell;
 use std::any::Any;
 use std::any::TypeId;
 use std::collections::HashMap;
@@ -59,6 +61,13 @@ pub trait HttpModule {
         _end_of_stream: bool,
     ) -> Result<()> {
         Ok(())
+    }
+
+    fn response_trailer_filter(
+        &mut self,
+        _trailers: &mut Option<Box<HeaderMap>>,
+    ) -> Result<Option<Bytes>> {
+        Ok(None)
     }
 
     fn as_any(&self) -> &dyn Any;
@@ -225,6 +234,27 @@ impl HttpModuleCtx {
             filter.response_body_filter(body, end_of_stream)?;
         }
         Ok(())
+    }
+
+    /// Run the `response_trailer_filter` for all the modules according to their orders.
+    ///
+    /// Returns an `Option<Bytes>` which can be used to write response trailers into
+    /// the response body. Note, if multiple modules attempt to write trailers into
+    /// the body the last one will be used.
+    ///
+    /// Implementors that intend to write trailers into the body need to ensure their filter
+    /// is using an encoding that supports this.
+    pub fn response_trailer_filter(
+        &mut self,
+        trailers: &mut Option<Box<HeaderMap>>,
+    ) -> Result<Option<Bytes>> {
+        let mut encoded = None;
+        for filter in self.module_ctx.iter_mut() {
+            if let Some(buf) = filter.response_trailer_filter(trailers)? {
+                encoded = Some(buf);
+            }
+        }
+        Ok(encoded)
     }
 }
 

@@ -3,6 +3,7 @@
 In this section we will go through how to route, modify or reject requests.
 
 ## Routing
+
 Any information from the request can be used to make routing decision. Bongonet doesn't impose any constraints on how users could implement their own routing logic.
 
 In the following example, the proxy sends traffic to 1.0.0.1 only when the request path start with `/family/`. All the other requests are routed to 1.1.1.1.
@@ -33,7 +34,6 @@ impl ProxyHttp for MyGateway {
     }
 }
 ```
-
 
 ## Modifying headers
 
@@ -88,14 +88,14 @@ impl ProxyHttp for MyGateway {
         Ok(false)
     }
 ```
+
 ## Logging
 
 Logging logic can be added to the `logging` phase of Bongonet. The logging phase runs on every request right before Bongonet proxy finish processing it. This phase runs for both successful and failed requests.
 
 In the example below, we add Prometheus metric and access logging to the proxy. In order for the metrics to be scraped, we also start a Prometheus metric server on a different port.
 
-
-``` Rust
+```Rust
 pub struct MyGateway {
     req_metric: prometheus::IntCounter,
 }

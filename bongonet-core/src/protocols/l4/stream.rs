@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 //! Transport layer connection
 
 use async_trait::async_trait;
+use bongonet_error::{ErrorType::*, OrErr, Result};
 use futures::FutureExt;
 use log::{debug, error};
-use bongonet_error::{ErrorType::*, OrErr, Result};
 use std::os::unix::io::AsRawFd;
 use std::pin::Pin;
 use std::sync::Arc;

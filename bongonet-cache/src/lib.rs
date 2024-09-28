@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ use bongonet_http::ResponseHeader;
 use http::{method::Method, request::Parts as ReqHeader, response::Parts as RespHeader};
 use key::{CacheHashKey, HashBinary};
 use lock::WritePermit;
+use rustracing::tag::Tag;
 use std::time::{Duration, Instant, SystemTime};
 use trace::CacheTraceCTX;
 
@@ -499,6 +500,11 @@ impl HttpCache {
             // from Stale: waited for cache lock, then retried and found asset was gone
             CachePhase::CacheKey | CachePhase::Bypass | CachePhase::Stale => {
                 self.phase = CachePhase::Miss;
+                // It's possible that we've set the meta on lookup and have come back around
+                // here after not being able to acquire the cache lock, and our item has since
+                // purged or expired. We should be sure that the meta is not set in this case
+                // as there shouldn't be a meta set for cache misses.
+                self.inner_mut().meta = None;
                 self.inner_mut().traces.start_miss_span();
             }
             _ => panic!("wrong phase {:?}", self.phase),
@@ -606,7 +612,15 @@ impl HttpCache {
                     // Downstream read and upstream write can be decoupled
                     let body_reader = inner
                         .storage
-                        .lookup(key, &inner.traces.get_miss_span())
+                        .lookup_streaming_write(
+                            key,
+                            inner
+                                .miss_handler
+                                .as_ref()
+                                .expect("miss handler already set")
+                                .streaming_write_tag(),
+                            &inner.traces.get_miss_span(),
+                        )
                         .await?;
 
                     if let Some((_meta, body_reader)) = body_reader {
@@ -1042,7 +1056,7 @@ impl HttpCache {
     /// Check [Self::is_cache_locked()], panic if this request doesn't have a read lock.
     pub async fn cache_lock_wait(&mut self) -> LockStatus {
         let inner = self.inner_mut();
-        let _span = inner.traces.child("cache_lock");
+        let mut span = inner.traces.child("cache_lock");
         let lock = inner.lock.take(); // remove the lock from self
         if let Some(Locked::Read(r)) = lock {
             let now = Instant::now();
@@ -1054,7 +1068,10 @@ impl HttpCache {
                     .lock_duration
                     .map_or(lock_duration, |d| d + lock_duration),
             );
-            r.lock_status() // TODO: tag the span with lock status
+            let status = r.lock_status();
+            let tag_value: &'static str = status.into();
+            span.set_tag(|| Tag::new("status", tag_value));
+            status
         } else {
             // should always call is_cache_locked() before this function
             panic!("cache_lock_wait on wrong type of lock")

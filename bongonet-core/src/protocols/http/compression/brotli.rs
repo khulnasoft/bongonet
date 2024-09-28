@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 use super::Encode;
 use super::COMPRESSION_ERROR;
 
+use bongonet_error::{OrErr, Result};
 use brotli::{CompressorWriter, DecompressorWriter};
 use bytes::Bytes;
-use bongonet_error::{OrErr, Result};
 use std::io::Write;
 use std::time::{Duration, Instant};
 

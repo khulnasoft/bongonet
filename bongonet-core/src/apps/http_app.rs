@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 //! A simple HTTP application trait that maps a request to a response
 
 use async_trait::async_trait;
+use bongonet_http::ResponseHeader;
 use http::Response;
 use log::{debug, error, trace};
-use bongonet_http::ResponseHeader;
 use std::sync::Arc;
 
 use crate::apps::HttpServerApp;

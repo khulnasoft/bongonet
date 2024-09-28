@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2024 KhulnaSoft, Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -213,17 +213,12 @@ fn test_steal_runtime() {
     let rt = Runtime::new_steal(2, "test");
     let handle = rt.get_handle();
     let ret = handle.block_on(async {
-        sleep(Duration::from_millis(500)).await; // Reduced sleep duration
+        sleep(Duration::from_secs(1)).await;
         let handle = current_handle();
         let join = handle.spawn(async {
-            println!("Spawned task started.");
-            sleep(Duration::from_millis(500)).await; // Reduced sleep duration
-            println!("Spawned task completed.");
+            sleep(Duration::from_secs(1)).await;
         });
-        match join.await {
-            Ok(_) => println!("Task completed successfully."),
-            Err(e) => println!("Task was cancelled: {:?}", e),
-        };
+        join.await.unwrap();
         1
     });
 
