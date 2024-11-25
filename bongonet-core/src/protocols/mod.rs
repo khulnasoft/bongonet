@@ -19,6 +19,8 @@ pub mod http;
 pub mod l4;
 pub mod raw_connect;
 pub mod tls;
+#[cfg(windows)]
+mod windows;
 
 pub use digest::{
     Digest, GetProxyDigest, GetSocketDigest, GetTimingDigest, ProtoDigest, SocketDigest,
@@ -53,19 +55,29 @@ pub trait UniqueID {
 /// Interface to get TLS info
 pub trait Ssl {
     /// Return the TLS info if the connection is over TLS
-    fn get_ssl(&self) -> Option<&crate::tls::ssl::SslRef> {
+    fn get_ssl(&self) -> Option<&TlsRef> {
         None
     }
 
-    /// Return the [`ssl::SslDigest`] for logging
+    /// Return the [`tls::SslDigest`] for logging
     fn get_ssl_digest(&self) -> Option<Arc<tls::SslDigest>> {
         None
     }
 
     /// Return selected ALPN if any
     fn selected_alpn_proto(&self) -> Option<ALPN> {
-        let ssl = self.get_ssl()?;
-        ALPN::from_wire_selected(ssl.selected_alpn_protocol()?)
+        None
+    }
+}
+
+/// The ability peek data before consuming it
+#[async_trait]
+pub trait Peek {
+    /// Peek data but not consuming it. This call should block until some data
+    /// is sent.
+    /// Return `false` if peeking is not supported/allowed.
+    async fn try_peek(&mut self, _buf: &mut [u8]) -> std::io::Result<bool> {
+        Ok(false)
     }
 }
 
@@ -82,6 +94,7 @@ pub trait IO:
     + GetTimingDigest
     + GetProxyDigest
     + GetSocketDigest
+    + Peek
     + Unpin
     + Debug
     + Send
@@ -102,6 +115,7 @@ impl<
             + GetTimingDigest
             + GetProxyDigest
             + GetSocketDigest
+            + Peek
             + Unpin
             + Debug
             + Send
@@ -152,6 +166,8 @@ mod ext_io_impl {
         }
     }
 
+    impl Peek for Mock {}
+
     use std::io::Cursor;
 
     #[async_trait]
@@ -179,6 +195,7 @@ mod ext_io_impl {
             None
         }
     }
+    impl<T> Peek for Cursor<T> {}
 
     use tokio::io::DuplexStream;
 
@@ -207,6 +224,8 @@ mod ext_io_impl {
             None
         }
     }
+
+    impl Peek for DuplexStream {}
 }
 
 #[cfg(unix)]
@@ -228,6 +247,8 @@ use std::os::unix::prelude::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawSocket;
 use std::{net::SocketAddr as InetSocketAddr, path::Path};
+
+use crate::protocols::tls::TlsRef;
 
 #[cfg(unix)]
 impl ConnFdReusable for SocketAddr {
@@ -299,6 +320,36 @@ impl ConnFdReusable for InetSocketAddr {
                     true
                 } else {
                     error!("Crit: FD mismatch: fd: {fd:?}, addr: {addr}, peer: {peer}",);
+                    false
+                }
+            }
+            Err(e) => {
+                debug!("Idle connection is broken: {e:?}");
+                false
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+impl ConnSockReusable for InetSocketAddr {
+    fn check_sock_match<V: AsRawSocket>(&self, sock: V) -> bool {
+        let sock = sock.as_raw_socket();
+        match windows::peer_addr(sock) {
+            Ok(peer) => {
+                const ZERO: IpAddr = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+                if self.ip() == ZERO {
+                    // https://www.rfc-editor.org/rfc/rfc1122.html#section-3.2.1.3
+                    // 0.0.0.0 should only be used as source IP not destination
+                    // However in some systems this destination IP is mapped to 127.0.0.1.
+                    // We just skip this check here to avoid false positive mismatch.
+                    return true;
+                }
+                if self == &peer {
+                    debug!("Inet FD to: {self} is reusable");
+                    true
+                } else {
+                    error!("Crit: FD mismatch: fd: {sock:?}, addr: {self}, peer: {peer}",);
                     false
                 }
             }

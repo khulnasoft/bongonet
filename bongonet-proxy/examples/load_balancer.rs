@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use async_trait::async_trait;
-use bongonet_core::services::background::background_service;
 use clap::Parser;
 use log::info;
+use bongonet_core::services::background::background_service;
 use std::{sync::Arc, time::Duration};
 
 use bongonet_core::server::configuration::Opt;
@@ -86,7 +86,7 @@ fn main() {
     let key_path = format!("{}/tests/keys/key.pem", env!("CARGO_MANIFEST_DIR"));
 
     let mut tls_settings =
-        bongonet_core::listeners::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
+        bongonet_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
     tls_settings.enable_h2();
     lb.add_tls_with_settings("0.0.0.0:6189", None, tls_settings);
 

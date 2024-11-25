@@ -43,9 +43,8 @@ An error has a _type_ (e.g. `ConnectionClosed`), a _source_ (e.g. `Upstream`, `D
 A minimal error can be created using functions like `new_in` / `new_up` / `new_down`, each of which specifies a source and asks the user to provide a type.
 
 Generally speaking:
-
-- To create a new error, without a direct cause but with more context, use `Error::explain`. You can also use `explain_err` on a `Result` to replace the potential error inside it with a new one.
-- To wrap a causing error in a new one with more context, use `Error::because`. You can also use `or_err` on a `Result` to replace the potential error inside it by wrapping the original one.
+* To create a new error, without a direct cause but with more context, use `Error::explain`. You can also use `explain_err` on a `Result` to replace the potential error inside it with a new one.
+* To wrap a causing error in a new one with more context, use `Error::because`. You can also use `or_err` on a `Result` to replace the potential error inside it by wrapping the original one.
 
 ## Retry
 

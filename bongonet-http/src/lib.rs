@@ -22,7 +22,6 @@
 
 #![allow(clippy::new_without_default)]
 
-use bongonet_error::{ErrorType::*, OrErr, Result};
 use bytes::BufMut;
 use http::header::{AsHeaderName, HeaderName, HeaderValue};
 use http::request::Builder as ReqBuilder;
@@ -30,6 +29,7 @@ use http::request::Parts as ReqParts;
 use http::response::Builder as RespBuilder;
 use http::response::Parts as RespParts;
 use http::uri::Uri;
+use bongonet_error::{ErrorType::*, OrErr, Result};
 use std::ops::Deref;
 
 pub use http::method::Method;

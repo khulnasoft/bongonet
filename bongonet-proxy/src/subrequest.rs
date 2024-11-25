@@ -13,13 +13,14 @@
 // limitations under the License.
 
 use async_trait::async_trait;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use bongonet_cache::lock::WritePermit;
 use bongonet_core::protocols::raw_connect::ProxyDigest;
 use bongonet_core::protocols::{
-    GetProxyDigest, GetSocketDigest, GetTimingDigest, SocketDigest, Ssl, TimingDigest, UniqueID,
+    GetProxyDigest, GetSocketDigest, GetTimingDigest, Peek, SocketDigest, Ssl, TimingDigest,
+    UniqueID, UniqueIDType,
 };
-use core::pin::Pin;
-use core::task::{Context, Poll};
 use std::io::Cursor;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite, Error, ReadBuf};
@@ -68,7 +69,7 @@ impl AsyncWrite for DummyIO {
 }
 
 impl UniqueID for DummyIO {
-    fn id(&self) -> i32 {
+    fn id(&self) -> UniqueIDType {
         0 // placeholder
     }
 }
@@ -92,6 +93,8 @@ impl GetSocketDigest for DummyIO {
         None
     }
 }
+
+impl Peek for DummyIO {}
 
 #[async_trait]
 impl bongonet_core::protocols::Shutdown for DummyIO {

@@ -827,6 +827,49 @@ mod test_cache {
     }
 
     #[tokio::test]
+    async fn test_bypassed_head() {
+        init();
+
+        let url = "http://127.0.0.1:6148/unique/test_bypassed_head/cache_control";
+
+        // uncacheable, should bypass
+        let res = reqwest::Client::new()
+            .get(url)
+            .header("set-cache-control", "private, max-age=0")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let headers = res.headers();
+        assert_eq!(headers["x-cache-status"], "no-cache");
+        assert_eq!(res.text().await.unwrap(), "hello world");
+
+        // we bypass cache for this next request, becomes cacheable
+        let res = reqwest::Client::new()
+            .head(url)
+            .header("set-cache-control", "public, max-age=10")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let headers = res.headers();
+        // should not cache the response
+        assert_eq!(headers["x-cache-status"], "deferred");
+
+        // MISS
+        let res = reqwest::Client::new()
+            .get(url)
+            .header("set-cache-control", "public, max-age=10")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let headers = res.headers();
+        assert_eq!(headers["x-cache-status"], "miss");
+        assert_eq!(res.text().await.unwrap(), "hello world");
+    }
+
+    #[tokio::test]
     async fn test_eviction() {
         init();
         let url = "http://127.0.0.1:6148/file_maker/test_eviction".to_owned();
@@ -2045,6 +2088,36 @@ mod test_cache {
         assert_eq!(res.status(), StatusCode::OK);
         let headers = res.headers();
         assert_eq!(headers["x-cache-status"], "no-cache");
+        assert_eq!(res.text().await.unwrap(), "hello world");
+    }
+
+    #[tokio::test]
+    async fn test_cache_h2_premature_end() {
+        init();
+        let url = "http://127.0.0.1:6148/set_content_length/test_cache_h2_premature_end.txt";
+        // try to fill cache
+        reqwest::Client::new()
+            .get(url)
+            .header("x-lock", "true")
+            .header("x-h2", "true")
+            .header("x-set-content-length", "13") // 2 more than "hello world"
+            .send()
+            .await
+            .unwrap();
+        // h2 protocol error with content length mismatch
+
+        // did not get saved into cache, next request will be cache miss
+        let res = reqwest::Client::new()
+            .get(url)
+            .header("x-lock", "true")
+            .header("x-h2", "true")
+            .header("x-set-content-length", "11")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let headers = res.headers();
+        assert_eq!(headers["x-cache-status"], "miss");
         assert_eq!(res.text().await.unwrap(), "hello world");
     }
 }

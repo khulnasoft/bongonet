@@ -14,10 +14,10 @@
 
 //! Conditional filter (not modified) utilities
 
-use bongonet_error::{ErrorType::InvalidHTTPHeader, OrErr, Result};
-use bongonet_http::{RequestHeader, ResponseHeader};
 use http::{header::*, StatusCode};
 use httpdate::{parse_http_date, HttpDate};
+use bongonet_error::{ErrorType::InvalidHTTPHeader, OrErr, Result};
+use bongonet_http::{RequestHeader, ResponseHeader};
 
 /// Evaluates conditional headers according to the [RFC](https://datatracker.ietf.org/doc/html/rfc9111#name-handling-a-received-validat).
 ///

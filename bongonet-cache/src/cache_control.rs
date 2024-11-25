@@ -16,11 +16,11 @@
 
 use super::*;
 
-use bongonet_error::{Error, ErrorType};
 use http::header::HeaderName;
 use http::HeaderValue;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
+use bongonet_error::{Error, ErrorType};
 use regex::bytes::Regex;
 use std::num::IntErrorKind;
 use std::slice;
@@ -51,8 +51,8 @@ impl DirectiveValue {
     /// A [DirectiveValue] without quotes (`"`).
     pub fn parse_as_bytes(&self) -> &[u8] {
         self.0
-            .strip_prefix(&[b'"'])
-            .and_then(|bytes| bytes.strip_suffix(&[b'"']))
+            .strip_prefix(b"\"")
+            .and_then(|bytes| bytes.strip_suffix(b"\""))
             .unwrap_or(&self.0[..])
     }
 

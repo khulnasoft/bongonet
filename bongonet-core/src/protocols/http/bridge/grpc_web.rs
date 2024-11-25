@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bongonet_error::{ErrorType::ReadError, OrErr, Result};
-use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::{BufMut, Bytes, BytesMut};
 use http::{
     header::{CONTENT_LENGTH, CONTENT_TYPE, TRANSFER_ENCODING},
     HeaderMap,
 };
+use bongonet_error::{ErrorType::ReadError, OrErr, Result};
+use bongonet_http::{RequestHeader, ResponseHeader};
 
 /// Used for bridging gRPC to gRPC-web and vice-versa.
 /// See gRPC-web [spec](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-WEB.md) and
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn grpc_web_request_upgrade() {
-        let request = Request::get("https://bongonet.khulnasoft.com/")
+        let request = Request::get("https://bongonet.org/")
             .header(CONTENT_TYPE, "application/gRPC-web+thrift")
             .version(Version::HTTP_2) // only set this to verify send_end_stream is configured
             .body(())

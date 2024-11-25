@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use async_trait::async_trait;
-use bongonet_timeout::timeout;
 use bytes::Bytes;
 use http::{Response, StatusCode};
 use log::debug;
 use once_cell::sync::Lazy;
+use bongonet_timeout::timeout;
 use prometheus::{register_int_counter, IntCounter};
 use std::sync::Arc;
 use std::time::Duration;

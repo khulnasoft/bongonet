@@ -24,10 +24,10 @@
 pub mod dict;
 mod thread_zstd;
 
-use bongonet_error::{Error, ErrorType, Result};
-use bongonet_http::ResponseHeader;
 use bytes::BufMut;
 use http::Version;
+use bongonet_error::{Error, ErrorType, Result};
+use bongonet_http::ResponseHeader;
 use std::cell::RefCell;
 use std::ops::DerefMut;
 use thread_local::ThreadLocal;

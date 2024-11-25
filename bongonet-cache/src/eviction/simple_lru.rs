@@ -18,9 +18,9 @@ use super::EvictionManager;
 use crate::key::CompactCacheKey;
 
 use async_trait::async_trait;
-use bongonet_error::{BError, ErrorType::*, OrErr, Result};
 use lru::LruCache;
 use parking_lot::RwLock;
+use bongonet_error::{BError, ErrorType::*, OrErr, Result};
 use serde::de::SeqAccess;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
@@ -248,7 +248,7 @@ impl EvictionManager for Manager {
             })?;
             let mut buffer = Vec::with_capacity(8192);
             file.read_to_end(&mut buffer)
-                .or_err(InternalError, "fail to write to {file_path}")?;
+                .or_err(InternalError, "fail to read from {file_path}")?;
             Ok::<Vec<u8>, BError>(buffer)
         })
         .await

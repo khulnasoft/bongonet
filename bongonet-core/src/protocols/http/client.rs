@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bytes::Bytes;
 use bongonet_error::Result;
 use bongonet_http::{RequestHeader, ResponseHeader};
-use bytes::Bytes;
 use std::time::Duration;
 
 use super::v1::client::HttpSession as Http1Session;
@@ -161,7 +161,7 @@ impl HttpSession {
         }
     }
 
-    /// Return a mutable [Digest] reference for the connection, see [`digest`] for more details.
+    /// Return a mutable [Digest] reference for the connection.
     ///
     /// Will return `None` if this is an H2 session and multiple streams are open.
     pub fn digest_mut(&mut self) -> Option<&mut Digest> {

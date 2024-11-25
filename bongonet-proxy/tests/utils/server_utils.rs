@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "any_tls")]
 use super::cert;
 use async_trait::async_trait;
+use clap::Parser;
+use http::header::VARY;
+use http::HeaderValue;
+use once_cell::sync::Lazy;
 use bongonet_cache::cache_control::CacheControl;
 use bongonet_cache::key::HashBinary;
 use bongonet_cache::VarianceBuilder;
@@ -28,14 +33,10 @@ use bongonet_core::protocols::{l4::socket::SocketAddr, Digest};
 use bongonet_core::server::configuration::Opt;
 use bongonet_core::services::Service;
 use bongonet_core::upstreams::peer::HttpPeer;
-use bongonet_core::utils::CertKey;
+use bongonet_core::utils::tls::CertKey;
 use bongonet_error::{Error, ErrorSource, Result};
 use bongonet_http::{RequestHeader, ResponseHeader};
 use bongonet_proxy::{ProxyHttp, Session};
-use clap::Parser;
-use http::header::VARY;
-use http::HeaderValue;
-use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
@@ -106,6 +107,7 @@ fn response_filter_common(
 }
 
 #[async_trait]
+#[cfg(feature = "any_tls")]
 impl ProxyHttp for ExampleProxyHttps {
     type CTX = CTX;
     fn new_ctx(&self) -> Self::CTX {
@@ -192,7 +194,8 @@ impl ProxyHttp for ExampleProxyHttps {
         _http_session: &mut Session,
         reused: bool,
         _peer: &HttpPeer,
-        _fd: std::os::unix::io::RawFd,
+        #[cfg(unix)] _fd: std::os::unix::io::RawFd,
+        #[cfg(windows)] _sock: std::os::windows::io::RawSocket,
         digest: Option<&Digest>,
         ctx: &mut CTX,
     ) -> Result<()> {
@@ -282,7 +285,7 @@ impl ProxyHttp for ExampleProxyHttp {
         #[cfg(unix)]
         if req.headers.contains_key("x-uds-peer") {
             return Ok(Box::new(HttpPeer::new_uds(
-                "/tmp/nginx-test.sock",
+                "/tmp/bongonet_nginx_test.sock",
                 false,
                 "".to_string(),
             )?));
@@ -311,7 +314,8 @@ impl ProxyHttp for ExampleProxyHttp {
         _http_session: &mut Session,
         reused: bool,
         _peer: &HttpPeer,
-        _fd: std::os::unix::io::RawFd,
+        #[cfg(unix)] _fd: std::os::unix::io::RawFd,
+        #[cfg(windows)] _sock: std::os::windows::io::RawSocket,
         digest: Option<&Digest>,
         ctx: &mut CTX,
     ) -> Result<()> {
@@ -355,11 +359,18 @@ impl ProxyHttp for ExampleProxyCache {
             .headers
             .get("x-port")
             .map_or("8000", |v| v.to_str().unwrap());
-        let peer = Box::new(HttpPeer::new(
+
+        let mut peer = Box::new(HttpPeer::new(
             format!("127.0.0.1:{}", port),
             false,
             "".to_string(),
         ));
+
+        if session.get_header_bytes("x-h2") == b"true" {
+            // default is 1, 1
+            peer.options.set_http_version(2, 2);
+        }
+
         Ok(peer)
     }
 
@@ -459,7 +470,12 @@ impl ProxyHttp for ExampleProxyCache {
         _ctx: &mut Self::CTX,
     ) -> Result<RespCacheable> {
         let cc = CacheControl::from_resp_headers(resp);
-        Ok(resp_cacheable(cc.as_ref(), resp, false, &CACHE_DEFAULT))
+        Ok(resp_cacheable(
+            cc.as_ref(),
+            resp.clone(),
+            false,
+            &CACHE_DEFAULT,
+        ))
     }
 
     fn upstream_response_filter(
@@ -544,6 +560,7 @@ fn test_main() {
     let mut proxy_service_http =
         bongonet_proxy::http_proxy_service(&my_server.configuration, ExampleProxyHttp {});
     proxy_service_http.add_tcp("0.0.0.0:6147");
+    #[cfg(unix)]
     proxy_service_http.add_uds("/tmp/bongonet_proxy.sock", None);
 
     let mut proxy_service_h2c =
@@ -555,26 +572,35 @@ fn test_main() {
     http_logic.server_options = Some(http_server_options);
     proxy_service_h2c.add_tcp("0.0.0.0:6146");
 
-    let mut proxy_service_https =
-        bongonet_proxy::http_proxy_service(&my_server.configuration, ExampleProxyHttps {});
-    proxy_service_https.add_tcp("0.0.0.0:6149");
-    let cert_path = format!("{}/tests/keys/server.crt", env!("CARGO_MANIFEST_DIR"));
-    let key_path = format!("{}/tests/keys/key.pem", env!("CARGO_MANIFEST_DIR"));
-    let mut tls_settings =
-        bongonet_core::listeners::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
-    tls_settings.enable_h2();
-    proxy_service_https.add_tls_with_settings("0.0.0.0:6150", None, tls_settings);
+    let mut proxy_service_https_opt: Option<Box<dyn Service>> = None;
+
+    #[cfg(feature = "any_tls")]
+    {
+        let mut proxy_service_https =
+            bongonet_proxy::http_proxy_service(&my_server.configuration, ExampleProxyHttps {});
+        proxy_service_https.add_tcp("0.0.0.0:6149");
+        let cert_path = format!("{}/tests/keys/server.crt", env!("CARGO_MANIFEST_DIR"));
+        let key_path = format!("{}/tests/keys/key.pem", env!("CARGO_MANIFEST_DIR"));
+        let mut tls_settings =
+            bongonet_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
+        tls_settings.enable_h2();
+        proxy_service_https.add_tls_with_settings("0.0.0.0:6150", None, tls_settings);
+        proxy_service_https_opt = Some(Box::new(proxy_service_https))
+    }
 
     let mut proxy_service_cache =
         bongonet_proxy::http_proxy_service(&my_server.configuration, ExampleProxyCache {});
     proxy_service_cache.add_tcp("0.0.0.0:6148");
 
-    let services: Vec<Box<dyn Service>> = vec![
+    let mut services: Vec<Box<dyn Service>> = vec![
         Box::new(proxy_service_h2c),
         Box::new(proxy_service_http),
-        Box::new(proxy_service_https),
         Box::new(proxy_service_cache),
     ];
+
+    if let Some(proxy_service_https) = proxy_service_https_opt {
+        services.push(proxy_service_https)
+    }
 
     set_compression_dict_path("tests/headers.dict");
     my_server.add_services(services);

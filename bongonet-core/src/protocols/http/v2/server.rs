@@ -14,7 +14,6 @@
 
 //! HTTP/2 server session
 
-use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use futures::Future;
 use h2::server;
@@ -24,6 +23,7 @@ use http::header::HeaderName;
 use http::uri::PathAndQuery;
 use http::{header, HeaderMap, Response};
 use log::{debug, warn};
+use bongonet_http::{RequestHeader, ResponseHeader};
 use std::sync::Arc;
 
 use crate::protocols::http::body_buffer::FixedBuffer;

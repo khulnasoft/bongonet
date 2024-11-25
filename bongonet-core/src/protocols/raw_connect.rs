@@ -23,11 +23,11 @@ use super::http::v1::client::HttpSession;
 use super::http::v1::common::*;
 use super::Stream;
 
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
-use bongonet_http::ResponseHeader;
 use bytes::{BufMut, BytesMut};
 use http::request::Parts as ReqHeader;
 use http::Version;
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
+use bongonet_http::ResponseHeader;
 use tokio::io::AsyncWriteExt;
 
 /// Try to establish a CONNECT proxy via the given `stream`.
@@ -214,14 +214,11 @@ mod test_sync {
     fn test_generate_connect_header() {
         let mut headers = BTreeMap::new();
         headers.insert(String::from("foo"), b"bar".to_vec());
-        let req = generate_connect_header("bongonet.khulnasoft.com", 123, headers.iter()).unwrap();
+        let req = generate_connect_header("bongonet.org", 123, headers.iter()).unwrap();
 
         assert_eq!(req.method, http::method::Method::CONNECT);
-        assert_eq!(req.uri.authority().unwrap(), "bongonet.khulnasoft.com:123");
-        assert_eq!(
-            req.headers.get("Host").unwrap(),
-            "bongonet.khulnasoft.com:123"
-        );
+        assert_eq!(req.uri.authority().unwrap(), "bongonet.org:123");
+        assert_eq!(req.headers.get("Host").unwrap(), "bongonet.org:123");
         assert_eq!(req.headers.get("foo").unwrap(), "bar");
     }
 
@@ -241,14 +238,14 @@ mod test_sync {
     fn test_request_to_wire_auth_form() {
         let new_request = http::Request::builder()
             .method("CONNECT")
-            .uri("https://bongonet.khulnasoft.com:123/")
+            .uri("https://bongonet.org:123/")
             .header("Foo", "Bar")
             .body(())
             .unwrap();
         let (new_request, _) = new_request.into_parts();
         let wire = http_req_header_to_wire_auth_form(&new_request);
         assert_eq!(
-            &b"CONNECT bongonet.khulnasoft.com:123 HTTP/1.1\r\nfoo: Bar\r\n\r\n"[..],
+            &b"CONNECT bongonet.org:123 HTTP/1.1\r\nfoo: Bar\r\n\r\n"[..],
             &wire
         );
     }
@@ -272,19 +269,19 @@ mod test_sync {
 
     #[tokio::test]
     async fn test_connect_write_request() {
-        let wire = b"CONNECT bongonet.khulnasoft.com:123 HTTP/1.1\r\nhost: bongonet.khulnasoft.com:123\r\n\r\n";
+        let wire = b"CONNECT bongonet.org:123 HTTP/1.1\r\nhost: bongonet.org:123\r\n\r\n";
         let mock_io = Box::new(Builder::new().write(wire).build());
 
         let headers: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-        let req = generate_connect_header("bongonet.khulnasoft.com", 123, headers.iter()).unwrap();
+        let req = generate_connect_header("bongonet.org", 123, headers.iter()).unwrap();
         // ConnectionClosed
         assert!(connect(mock_io, &req).await.is_err());
 
-        let to_wire = b"CONNECT bongonet.khulnasoft.com:123 HTTP/1.1\r\nhost: bongonet.khulnasoft.com:123\r\n\r\n";
+        let to_wire = b"CONNECT bongonet.org:123 HTTP/1.1\r\nhost: bongonet.org:123\r\n\r\n";
         let from_wire = b"HTTP/1.1 200 OK\r\n\r\n";
         let mock_io = Box::new(Builder::new().write(to_wire).read(from_wire).build());
 
-        let req = generate_connect_header("bongonet.khulnasoft.com", 123, headers.iter()).unwrap();
+        let req = generate_connect_header("bongonet.org", 123, headers.iter()).unwrap();
         let result = connect(mock_io, &req).await;
         assert!(result.is_ok());
     }

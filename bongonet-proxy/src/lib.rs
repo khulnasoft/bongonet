@@ -36,12 +36,12 @@
 //! See `examples/load_balancer.rs` for a detailed example.
 
 use async_trait::async_trait;
-use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use futures::future::FutureExt;
 use http::{header, version::Version};
 use log::{debug, error, trace, warn};
 use once_cell::sync::Lazy;
+use bongonet_http::{RequestHeader, ResponseHeader};
 use std::fmt::Debug;
 use std::str;
 use std::sync::Arc;
@@ -250,7 +250,7 @@ impl<SV> HttpProxy<SV> {
             }
             HttpTask::Body(data, eos) => self
                 .inner
-                .upstream_response_body_filter(session, data, *eos, ctx),
+                .upstream_response_body_filter(session, data, *eos, ctx)?,
             HttpTask::Trailer(Some(trailers)) => self
                 .inner
                 .upstream_response_trailer_filter(session, trailers, ctx)?,
@@ -535,6 +535,10 @@ impl<SV> HttpProxy<SV> {
                 if !proxy_to_upstream {
                     // The hook can choose to write its own response, but if it doesn't, we respond
                     // with a generic 502
+                    if session.cache.enabled() {
+                        // drop the cache lock that this request may be holding onto
+                        session.cache.disable(NoCacheReason::DeclinedToUpstream);
+                    }
                     if session.response_written().is_none() {
                         match session.write_response_header_ref(&BAD_GATEWAY).await {
                             Ok(()) => {}
@@ -557,6 +561,10 @@ impl<SV> HttpProxy<SV> {
                 /* else continue */
             }
             Err(e) => {
+                if session.cache.enabled() {
+                    session.cache.disable(NoCacheReason::InternalError);
+                }
+
                 self.handle_error(
                     &mut session,
                     &mut ctx,
@@ -621,7 +629,14 @@ impl<SV> HttpProxy<SV> {
 
         if let Some(e) = final_error.as_ref() {
             // If we have errored and are still holding a cache lock, release it.
-            session.cache.disable(NoCacheReason::InternalError);
+            if session.cache.enabled() {
+                let reason = if *e.esource() == ErrorSource::Upstream {
+                    NoCacheReason::UpstreamError
+                } else {
+                    NoCacheReason::InternalError
+                };
+                session.cache.disable(reason);
+            }
             let status = self.inner.fail_to_proxy(&mut session, e, &mut ctx).await;
 
             // final error will have > 0 status unless downstream connection is dead

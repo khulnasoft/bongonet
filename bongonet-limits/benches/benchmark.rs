@@ -17,8 +17,8 @@
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 use ahash::RandomState;
-use bongonet_limits::estimator::Estimator;
 use dashmap::DashMap;
+use bongonet_limits::estimator::Estimator;
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;

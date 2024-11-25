@@ -14,16 +14,17 @@
 
 //! TLS server specific implementation
 
+use crate::listeners::TlsAcceptCallbacks;
 use crate::protocols::tls::SslStream;
 use crate::protocols::{Shutdown, IO};
 use crate::tls::ext;
 use crate::tls::ext::ssl_from_acceptor;
 use crate::tls::ssl;
-use crate::tls::ssl::{SslAcceptor, SslRef};
+use crate::tls::ssl::SslAcceptor;
 
 use async_trait::async_trait;
-use bongonet_error::{ErrorType::*, OrErr, Result};
 use log::warn;
+use bongonet_error::{ErrorType::*, OrErr, Result};
 use std::pin::Pin;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
@@ -68,19 +69,6 @@ pub async fn handshake_with_callback<S: IO>(
         Ok(tls_stream)
     }
 }
-
-/// The APIs to customize things like certificate during TLS server side handshake
-#[async_trait]
-pub trait TlsAccept {
-    // TODO: return error?
-    /// This function is called in the middle of a TLS handshake. Structs who implement this function
-    /// should provide tls certificate and key to the [SslRef] via [ext::ssl_use_certificate] and [ext::ssl_use_private_key].
-    async fn certificate_callback(&self, _ssl: &mut SslRef) -> () {
-        // does nothing by default
-    }
-}
-
-pub type TlsAcceptCallbacks = Box<dyn TlsAccept + Send + Sync>;
 
 #[async_trait]
 impl<S> Shutdown for SslStream<S>
@@ -143,9 +131,12 @@ impl<S: AsyncRead + AsyncWrite + Send + Unpin> ResumableAccept for SslStream<S> 
 }
 
 #[tokio::test]
-#[cfg(feature = "some_tls")]
+#[cfg(feature = "any_tls")]
 async fn test_async_cert() {
+    use crate::protocols::tls::TlsRef;
     use tokio::io::AsyncReadExt;
+
+    use crate::listeners::{TlsAccept, TlsAcceptCallbacks};
     let acceptor = ssl::SslAcceptor::mozilla_intermediate_v5(ssl::SslMethod::tls())
         .unwrap()
         .build();
@@ -153,10 +144,10 @@ async fn test_async_cert() {
     struct Callback;
     #[async_trait]
     impl TlsAccept for Callback {
-        async fn certificate_callback(&self, ssl: &mut SslRef) -> () {
+        async fn certificate_callback(&self, ssl: &mut TlsRef) -> () {
             assert_eq!(
                 ssl.servername(ssl::NameType::HOST_NAME).unwrap(),
-                "bongonet.khulnasoft.com"
+                "bongonet.org"
             );
             let cert = format!("{}/tests/keys/server.crt", env!("CARGO_MANIFEST_DIR"));
             let key = format!("{}/tests/keys/key.pem", env!("CARGO_MANIFEST_DIR"));
@@ -180,7 +171,7 @@ async fn test_async_cert() {
             .unwrap()
             .build();
         let mut ssl = ssl::Ssl::new(&ssl_context).unwrap();
-        ssl.set_hostname("bongonet.khulnasoft.com").unwrap();
+        ssl.set_hostname("bongonet.org").unwrap();
         ssl.set_verify(ssl::SslVerifyMode::NONE); // we don have a valid cert
         let mut stream = SslStream::new(ssl, client).unwrap();
         Pin::new(&mut stream).connect().await.unwrap();

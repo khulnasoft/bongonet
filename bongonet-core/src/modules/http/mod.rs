@@ -14,19 +14,21 @@
 
 //! Modules for HTTP traffic.
 //!
-//! [HttpModule]s define request and response filters to use while running an [HttpServer]
+//! [HttpModule]s define request and response filters to use while running an
+//! [HttpServer](crate::apps::http_app::HttpServer)
 //! application.
-//! See the [ResponseCompression] module for an example of how to implement a basic module.
+//! See the [ResponseCompression](crate::modules::http::compression::ResponseCompression)
+//! module for an example of how to implement a basic module.
 
 pub mod compression;
 pub mod grpc_web;
 
 use async_trait::async_trait;
-use bongonet_error::Result;
-use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use http::HeaderMap;
 use once_cell::sync::OnceCell;
+use bongonet_error::Result;
+use bongonet_http::{RequestHeader, ResponseHeader};
 use std::any::Any;
 use std::any::TypeId;
 use std::collections::HashMap;

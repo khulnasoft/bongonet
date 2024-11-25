@@ -17,8 +17,8 @@
 use crate::storage::HandleMiss;
 use crate::MissHandler;
 use async_trait::async_trait;
-use bongonet_error::{Error, ErrorType};
 use bytes::Bytes;
+use bongonet_error::{Error, ErrorType};
 
 /// [MaxFileSizeMissHandler] wraps a MissHandler to enforce a maximum asset size that should be
 /// written to the MissHandler.

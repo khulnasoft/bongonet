@@ -19,12 +19,12 @@ use super::v1::server::HttpSession as SessionV1;
 use super::v2::server::HttpSession as SessionV2;
 use super::HttpTask;
 use crate::protocols::{Digest, SocketAddr, Stream};
-use bongonet_error::Result;
-use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use http::HeaderValue;
 use http::{header::AsHeaderName, HeaderMap};
 use log::error;
+use bongonet_error::Result;
+use bongonet_http::{RequestHeader, ResponseHeader};
 use std::time::Duration;
 
 /// HTTP server session object for both HTTP/1.x and HTTP/2

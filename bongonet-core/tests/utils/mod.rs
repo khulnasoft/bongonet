@@ -15,16 +15,16 @@
 use once_cell::sync::Lazy;
 use std::{thread, time};
 
+use clap::Parser;
 use bongonet_core::listeners::Listeners;
 use bongonet_core::server::configuration::Opt;
 use bongonet_core::server::Server;
 use bongonet_core::services::listening::Service;
-use clap::Parser;
 
 use async_trait::async_trait;
-use bongonet_timeout::timeout;
 use bytes::Bytes;
 use http::{Response, StatusCode};
+use bongonet_timeout::timeout;
 use std::time::Duration;
 
 use bongonet_core::apps::http_app::ServeHttp;
@@ -82,7 +82,7 @@ fn entry_point(opt: Option<Opt>) {
     listeners.add_uds("/tmp/echo.sock", None);
 
     let mut tls_settings =
-        bongonet_core::listeners::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
+        bongonet_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
     tls_settings.enable_h2();
     listeners.add_tls_with_settings("0.0.0.0:6146", None, tls_settings);
 

@@ -16,16 +16,22 @@
 
 #![allow(non_camel_case_types)]
 
-use bongonet_error::{Error, ErrorType::*, OrErr, Result};
+#[cfg(unix)]
 use libc::socklen_t;
 #[cfg(target_os = "linux")]
 use libc::{c_int, c_ulonglong, c_void};
+use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use std::io::{self, ErrorKind};
 use std::mem;
 use std::net::SocketAddr;
+#[cfg(unix)]
 use std::os::unix::io::{AsRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsRawSocket, RawSocket};
 use std::time::Duration;
-use tokio::net::{TcpSocket, TcpStream, UnixStream};
+#[cfg(unix)]
+use tokio::net::UnixStream;
+use tokio::net::{TcpSocket, TcpStream};
 
 use crate::connectors::l4::BindTo;
 
@@ -98,8 +104,15 @@ impl TCP_INFO {
     }
 
     /// Return the size of [`TCP_INFO`]
+    #[cfg(unix)]
     pub fn len() -> socklen_t {
         mem::size_of::<Self>() as socklen_t
+    }
+
+    /// Return the size of [`TCP_INFO`]
+    #[cfg(windows)]
+    pub fn len() -> usize {
+        mem::size_of::<Self>()
     }
 }
 
@@ -170,7 +183,7 @@ fn ip_bind_addr_no_port(fd: RawFd, val: bool) -> io::Result<()> {
     )
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 fn ip_bind_addr_no_port(_fd: RawFd, _val: bool) -> io::Result<()> {
     Ok(())
 }
@@ -190,8 +203,13 @@ fn ip_local_port_range(fd: RawFd, low: u16, high: u16) -> io::Result<()> {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 fn ip_local_port_range(_fd: RawFd, _low: u16, _high: u16) -> io::Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+fn ip_local_port_range(_fd: RawSocket, _low: u16, _high: u16) -> io::Result<()> {
     Ok(())
 }
 
@@ -233,8 +251,13 @@ fn set_keepalive(fd: RawFd, ka: &TcpKeepalive) -> io::Result<()> {
     set_so_keepalive_count(fd, ka.count)
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 fn set_keepalive(_fd: RawFd, _ka: &TcpKeepalive) -> io::Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+fn set_keepalive(_sock: RawSocket, _ka: &TcpKeepalive) -> io::Result<()> {
     Ok(())
 }
 
@@ -244,8 +267,13 @@ pub fn get_tcp_info(fd: RawFd) -> io::Result<TCP_INFO> {
     get_opt_sized(fd, libc::IPPROTO_TCP, libc::TCP_INFO)
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn get_tcp_info(_fd: RawFd) -> io::Result<TCP_INFO> {
+    Ok(unsafe { TCP_INFO::new() })
+}
+
+#[cfg(windows)]
+pub fn get_tcp_info(_fd: RawSocket) -> io::Result<TCP_INFO> {
     Ok(unsafe { TCP_INFO::new() })
 }
 
@@ -256,8 +284,13 @@ pub fn set_recv_buf(fd: RawFd, val: usize) -> Result<()> {
         .or_err(ConnectError, "failed to set SO_RCVBUF")
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn set_recv_buf(_fd: RawFd, _: usize) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn set_recv_buf(_sock: RawSocket, _: usize) -> Result<()> {
     Ok(())
 }
 
@@ -266,8 +299,13 @@ pub fn get_recv_buf(fd: RawFd) -> io::Result<usize> {
     get_opt_sized::<c_int>(fd, libc::SOL_SOCKET, libc::SO_RCVBUF).map(|v| v as usize)
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn get_recv_buf(_fd: RawFd) -> io::Result<usize> {
+    Ok(0)
+}
+
+#[cfg(windows)]
+pub fn get_recv_buf(_sock: RawSocket) -> io::Result<usize> {
     Ok(0)
 }
 
@@ -283,8 +321,13 @@ pub fn set_tcp_fastopen_connect(fd: RawFd) -> Result<()> {
     .or_err(ConnectError, "failed to set TCP_FASTOPEN_CONNECT")
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn set_tcp_fastopen_connect(_fd: RawFd) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn set_tcp_fastopen_connect(_sock: RawSocket) -> Result<()> {
     Ok(())
 }
 
@@ -295,8 +338,13 @@ pub fn set_tcp_fastopen_backlog(fd: RawFd, backlog: usize) -> Result<()> {
         .or_err(ConnectError, "failed to set TCP_FASTOPEN")
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn set_tcp_fastopen_backlog(_fd: RawFd, _backlog: usize) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn set_tcp_fastopen_backlog(_sock: RawSocket, _backlog: usize) -> Result<()> {
     Ok(())
 }
 
@@ -320,8 +368,13 @@ pub fn set_dscp(fd: RawFd, value: u8) -> Result<()> {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn set_dscp(_fd: RawFd, _value: u8) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn set_dscp(_sock: RawSocket, _value: u8) -> Result<()> {
     Ok(())
 }
 
@@ -330,9 +383,54 @@ pub fn get_socket_cookie(fd: RawFd) -> io::Result<u64> {
     get_opt_sized::<c_ulonglong>(fd, libc::SOL_SOCKET, libc::SO_COOKIE)
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn get_socket_cookie(_fd: RawFd) -> io::Result<u64> {
     Ok(0) // SO_COOKIE is a Linux concept
+}
+
+#[cfg(target_os = "linux")]
+pub fn get_original_dest(fd: RawFd) -> Result<Option<SocketAddr>> {
+    use super::socket;
+    use bongonet_error::OkOrErr;
+    use std::net::{SocketAddrV4, SocketAddrV6};
+
+    let sock = socket::SocketAddr::from_raw_fd(fd, false);
+    let addr = sock
+        .as_ref()
+        .and_then(|s| s.as_inet())
+        .or_err(SocketError, "failed get original dest, invalid IP socket")?;
+
+    let dest = if addr.is_ipv4() {
+        get_opt_sized::<libc::sockaddr_in>(fd, libc::SOL_IP, libc::SO_ORIGINAL_DST).map(|addr| {
+            SocketAddr::V4(SocketAddrV4::new(
+                u32::from_be(addr.sin_addr.s_addr).into(),
+                u16::from_be(addr.sin_port),
+            ))
+        })
+    } else {
+        get_opt_sized::<libc::sockaddr_in6>(fd, libc::SOL_IPV6, libc::IP6T_SO_ORIGINAL_DST).map(
+            |addr| {
+                SocketAddr::V6(SocketAddrV6::new(
+                    addr.sin6_addr.s6_addr.into(),
+                    u16::from_be(addr.sin6_port),
+                    addr.sin6_flowinfo,
+                    addr.sin6_scope_id,
+                ))
+            },
+        )
+    };
+    dest.or_err(SocketError, "failed to get original dest")
+        .map(Some)
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+pub fn get_original_dest(_fd: RawFd) -> Result<Option<SocketAddr>> {
+    Ok(None)
+}
+
+#[cfg(windows)]
+pub fn get_original_dest(_sock: RawSocket) -> Result<Option<SocketAddr>> {
+    Ok(None)
 }
 
 /// connect() to the given address while optionally binding to the specific source address and port range.
@@ -380,7 +478,8 @@ async fn inner_connect_with<F: FnOnce(&TcpSocket) -> Result<()>>(
     }
     .or_err(SocketError, "failed to create socket")?;
 
-    if cfg!(target_os = "linux") {
+    #[cfg(unix)]
+    {
         ip_bind_addr_no_port(socket.as_raw_fd(), true).or_err(
             SocketError,
             "failed to set socket opts IP_BIND_ADDRESS_NO_PORT",
@@ -399,6 +498,15 @@ async fn inner_connect_with<F: FnOnce(&TcpSocket) -> Result<()>>(
             }
         }
     }
+
+    #[cfg(windows)]
+    if let Some(bind_to) = bind_to {
+        if let Some(baddr) = bind_to.addr {
+            socket
+                .bind(baddr)
+                .or_err_with(BindError, || format!("failed to bind to socket {}", baddr))?;
+        };
+    };
     // TODO: add support for bind on other platforms
 
     set_socket(&socket)?;
@@ -418,6 +526,7 @@ pub async fn connect(addr: &SocketAddr, bind_to: Option<&BindTo>) -> Result<TcpS
 }
 
 /// connect() to the given Unix domain socket
+#[cfg(unix)]
 pub async fn connect_uds(path: &std::path::Path) -> Result<UnixStream> {
     UnixStream::connect(path)
         .await
@@ -460,9 +569,12 @@ impl std::fmt::Display for TcpKeepalive {
 
 /// Apply the given TCP keepalive settings to the given connection
 pub fn set_tcp_keepalive(stream: &TcpStream, ka: &TcpKeepalive) -> Result<()> {
-    let fd = stream.as_raw_fd();
+    #[cfg(unix)]
+    let raw = stream.as_raw_fd();
+    #[cfg(windows)]
+    let raw = stream.as_raw_socket();
     // TODO: check localhost or if keepalive is already set
-    set_keepalive(fd, ka).or_err(ConnectError, "failed to set keepalive")
+    set_keepalive(raw, ka).or_err(ConnectError, "failed to set keepalive")
 }
 
 #[cfg(test)]
@@ -473,7 +585,10 @@ mod test {
     fn test_set_recv_buf() {
         use tokio::net::TcpSocket;
         let socket = TcpSocket::new_v4().unwrap();
+        #[cfg(unix)]
         set_recv_buf(socket.as_raw_fd(), 102400).unwrap();
+        #[cfg(windows)]
+        set_recv_buf(socket.as_raw_socket(), 102400).unwrap();
 
         #[cfg(target_os = "linux")]
         {

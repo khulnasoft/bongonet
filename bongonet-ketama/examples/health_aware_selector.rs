@@ -1,5 +1,5 @@
-use bongonet_ketama::{Bucket, Continuum};
 use log::info;
+use bongonet_ketama::{Bucket, Continuum};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 

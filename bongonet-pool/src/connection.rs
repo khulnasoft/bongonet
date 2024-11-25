@@ -14,9 +14,9 @@
 
 //! Generic connection pooling
 
-use bongonet_timeout::{sleep, timeout};
 use log::{debug, warn};
 use parking_lot::{Mutex, RwLock};
+use bongonet_timeout::{sleep, timeout};
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
