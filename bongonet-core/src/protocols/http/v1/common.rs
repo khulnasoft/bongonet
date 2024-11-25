@@ -14,9 +14,9 @@
 
 //! Common functions and constants
 
+use bongonet_http::{HMap, RequestHeader, ResponseHeader};
 use http::{header, HeaderValue};
 use log::warn;
-use bongonet_http::{HMap, RequestHeader, ResponseHeader};
 use std::str;
 use std::time::Duration;
 

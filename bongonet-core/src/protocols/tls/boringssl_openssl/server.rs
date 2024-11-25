@@ -23,8 +23,8 @@ use crate::tls::ssl;
 use crate::tls::ssl::SslAcceptor;
 
 use async_trait::async_trait;
-use log::warn;
 use bongonet_error::{ErrorType::*, OrErr, Result};
+use log::warn;
 use std::pin::Pin;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 

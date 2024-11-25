@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use log::debug;
 use bongonet_error::{Error, ErrorType::*, OrErr, Result};
+use log::debug;
 use std::sync::{Arc, Once};
 
 use crate::connectors::tls::replace_leftmost_underscore;

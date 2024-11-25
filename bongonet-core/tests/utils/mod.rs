@@ -15,16 +15,16 @@
 use once_cell::sync::Lazy;
 use std::{thread, time};
 
-use clap::Parser;
 use bongonet_core::listeners::Listeners;
 use bongonet_core::server::configuration::Opt;
 use bongonet_core::server::Server;
 use bongonet_core::services::listening::Service;
+use clap::Parser;
 
 use async_trait::async_trait;
+use bongonet_timeout::timeout;
 use bytes::Bytes;
 use http::{Response, StatusCode};
-use bongonet_timeout::timeout;
 use std::time::Duration;
 
 use bongonet_core::apps::http_app::ServeHttp;

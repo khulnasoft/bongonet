@@ -14,9 +14,9 @@
 
 use super::{Encode, COMPRESSION_ERROR};
 
+use bongonet_error::{OrErr, Result};
 use bytes::Bytes;
 use flate2::write::{GzDecoder, GzEncoder};
-use bongonet_error::{OrErr, Result};
 use std::io::Write;
 use std::time::{Duration, Instant};
 

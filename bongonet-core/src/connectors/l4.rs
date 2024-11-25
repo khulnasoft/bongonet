@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use async_trait::async_trait;
-use log::debug;
 use bongonet_error::{Context, Error, ErrorType::*, OrErr, Result};
+use log::debug;
 use rand::seq::SliceRandom;
 use std::net::SocketAddr as InetSocketAddr;
 #[cfg(unix)]

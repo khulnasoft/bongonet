@@ -19,8 +19,8 @@ use crate::protocols::tls::rustls::TlsStream;
 use crate::protocols::IO;
 use crate::{listeners::tls::Acceptor, protocols::Shutdown};
 use async_trait::async_trait;
-use log::warn;
 use bongonet_error::{ErrorType::*, OrErr, Result};
+use log::warn;
 use std::pin::Pin;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 

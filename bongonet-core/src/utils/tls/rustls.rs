@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ouroboros::self_referencing;
 use bongonet_error::Result;
 use bongonet_rustls::CertificateDer;
+use ouroboros::self_referencing;
 use std::hash::{Hash, Hasher};
 use x509_parser::prelude::{FromDer, X509Certificate};
 

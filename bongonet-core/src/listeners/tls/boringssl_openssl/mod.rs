@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use log::debug;
 use bongonet_error::{ErrorType, OrErr, Result};
+use log::debug;
 use std::ops::{Deref, DerefMut};
 
 pub use crate::protocols::tls::ALPN;

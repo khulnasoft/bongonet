@@ -18,9 +18,9 @@
 use super::{CacheStatus, MemoryCache};
 
 use async_trait::async_trait;
+use bongonet_error::{Error, ErrorTrait};
 use log::warn;
 use parking_lot::RwLock;
-use bongonet_error::{Error, ErrorTrait};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;

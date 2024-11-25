@@ -15,8 +15,8 @@
 use super::*;
 use crate::proxy_cache::{range_filter::RangeBodyFilter, ServeFromCache};
 use crate::proxy_common::*;
-use http::{header::CONTENT_LENGTH, Method, StatusCode};
 use bongonet_core::protocols::http::v2::client::{write_body, Http2Session};
+use http::{header::CONTENT_LENGTH, Method, StatusCode};
 
 // add scheme and authority as required by h2 lib
 fn update_h2_scheme_authority(

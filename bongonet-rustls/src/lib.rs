@@ -21,9 +21,9 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
+use bongonet_error::{Error, ErrorType, OrErr, Result};
 use log::warn;
 pub use no_debug::{Ellipses, NoDebug, WithTypeInfo};
-use bongonet_error::{Error, ErrorType, OrErr, Result};
 pub use rustls::{version, ClientConfig, RootCertStore, ServerConfig, Stream};
 pub use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item;

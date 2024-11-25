@@ -20,11 +20,11 @@ mod daemon;
 #[cfg(unix)]
 pub(crate) mod transfer_fd;
 
+use bongonet_runtime::Runtime;
+use bongonet_timeout::fast_timeout;
 #[cfg(unix)]
 use daemon::daemonize;
 use log::{debug, error, info, warn};
-use bongonet_runtime::Runtime;
-use bongonet_timeout::fast_timeout;
 #[cfg(feature = "sentry")]
 use sentry::ClientOptions;
 use std::sync::Arc;

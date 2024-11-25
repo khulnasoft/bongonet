@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use once_cell::sync::Lazy;
 #[cfg(feature = "rustls")]
 use bongonet_core::tls::{load_pem_file_ca, load_pem_file_private_key};
 #[cfg(feature = "openssl_derived")]
@@ -20,6 +19,7 @@ use bongonet_core::tls::{
     pkey::{PKey, Private},
     x509::X509,
 };
+use once_cell::sync::Lazy;
 use std::fs;
 
 #[cfg(feature = "openssl_derived")]

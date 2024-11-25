@@ -36,12 +36,12 @@
 //! See `examples/load_balancer.rs` for a detailed example.
 
 use async_trait::async_trait;
+use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use futures::future::FutureExt;
 use http::{header, version::Version};
 use log::{debug, error, trace, warn};
 use once_cell::sync::Lazy;
-use bongonet_http::{RequestHeader, ResponseHeader};
 use std::fmt::Debug;
 use std::str;
 use std::sync::Arc;

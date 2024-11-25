@@ -15,10 +15,6 @@
 #[cfg(feature = "any_tls")]
 use super::cert;
 use async_trait::async_trait;
-use clap::Parser;
-use http::header::VARY;
-use http::HeaderValue;
-use once_cell::sync::Lazy;
 use bongonet_cache::cache_control::CacheControl;
 use bongonet_cache::key::HashBinary;
 use bongonet_cache::VarianceBuilder;
@@ -37,6 +33,10 @@ use bongonet_core::utils::tls::CertKey;
 use bongonet_error::{Error, ErrorSource, Result};
 use bongonet_http::{RequestHeader, ResponseHeader};
 use bongonet_proxy::{ProxyHttp, Session};
+use clap::Parser;
+use http::header::VARY;
+use http::HeaderValue;
+use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
@@ -582,7 +582,8 @@ fn test_main() {
         let cert_path = format!("{}/tests/keys/server.crt", env!("CARGO_MANIFEST_DIR"));
         let key_path = format!("{}/tests/keys/key.pem", env!("CARGO_MANIFEST_DIR"));
         let mut tls_settings =
-            bongonet_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
+            bongonet_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path)
+                .unwrap();
         tls_settings.enable_h2();
         proxy_service_https.add_tls_with_settings("0.0.0.0:6150", None, tls_settings);
         proxy_service_https_opt = Some(Box::new(proxy_service_https))

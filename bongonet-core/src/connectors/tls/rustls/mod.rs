@@ -14,7 +14,6 @@
 
 use std::sync::Arc;
 
-use log::debug;
 use bongonet_error::{
     Error,
     ErrorType::{ConnectTimedout, InvalidCert},
@@ -25,6 +24,7 @@ use bongonet_rustls::{
     version, CertificateDer, ClientConfig as RusTlsClientConfig, PrivateKeyDer, RootCertStore,
     TlsConnector as RusTlsConnector,
 };
+use log::debug;
 
 use crate::protocols::tls::{client::handshake, TlsStream};
 use crate::{connectors::ConnectorOptions, listeners::ALPN, protocols::IO, upstreams::peer::Peer};
