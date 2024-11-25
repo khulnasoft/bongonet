@@ -1,9 +1,7 @@
 # **RateLimiter quickstart**
-
 Bongonet provides a crate `bongonet-limits` which provides a simple and easy to use rate limiter for your application. Below is an example of how you can use [`Rate`](https://docs.rs/bongonet-limits/latest/bongonet_limits/rate/struct.Rate.html) to create an application that uses multiple limiters to restrict the rate at which requests can be made on a per-app basis (determined by a request header).
 
 ## Steps
-
 1. Add the following dependencies to your `Cargo.toml`:
    ```toml
    async-trait="0.1"
@@ -19,7 +17,6 @@ Bongonet provides a crate `bongonet-limits` which provides a simple and easy to 
    4. If the request is not rate limited, return `Ok(false)` to continue the request.
 
 ## Example
-
 ```rust
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
@@ -138,12 +135,11 @@ impl ProxyHttp for LB {
 ```
 
 ## Testing
+To use the example above, 
 
-To use the example above,
-
-1. Run your program with `cargo run`.
+1. Run your program with `cargo run`. 
 2. Verify the program is working with a few executions of ` curl localhost:6188 -H "appid:1" -v`
-   - The first request should work and any later requests that arrive within 1s of a previous request should fail with:
+   - The first request should work and any later requests that arrive within 1s of a previous request should fail with: 
      ```
      *   Trying 127.0.0.1:6188...
      * Connected to localhost (127.0.0.1) port 6188 (#0)
@@ -152,20 +148,19 @@ To use the example above,
      > User-Agent: curl/7.88.1
      > Accept: */*
      > appid:1
-     >
+     > 
      < HTTP/1.1 429 Too Many Requests
      < X-Rate-Limit-Limit: 1
      < X-Rate-Limit-Remaining: 0
      < X-Rate-Limit-Reset: 1
      < Date: Sun, 14 Jul 2024 20:29:02 GMT
      < Connection: close
-     <
+     < 
      * Closing connection 0
      ```
 
 ## Complete Example
-
-You can run the pre-made example code in the [`bongonet-proxy` examples folder](https://github.com/khulnasoft/bongonet/tree/main/bongonet-proxy/examples/rate_limiter.rs) with
+You can run the pre-made example code in the [`bongonet-proxy` examples folder](https://github.com/khulnasoft/bongonet/tree/main/bongonet-proxy/examples/rate_limiter.rs) with 
 
 ```
 cargo run --example rate_limiter

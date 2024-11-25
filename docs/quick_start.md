@@ -17,14 +17,12 @@ cargo new load_balancer
 ### Include the Bongonet Crate and Basic Dependencies
 
 In your project's `cargo.toml` file add the following to your dependencies
-
 ```
 async-trait="0.1"
-bongonet = { version = "0.1", features = [ "lb" ] }
+bongonet = { version = "0.3", features = [ "lb" ] }
 ```
 
 ### Create a bongonet server
-
 First, let's create a bongonet server. A bongonet `Server` is a process which can host one or many
 services. The bongonet `Server` takes care of configuration and CLI argument parsing, daemonization,
 signal handling, and graceful restart or shutdown.
@@ -32,6 +30,7 @@ signal handling, and graceful restart or shutdown.
 The preferred usage is to initialize the `Server` in the `main()` function and
 use `run_forever()` to spawn all the runtime threads and block the main thread until the server is
 ready to exit.
+
 
 ```rust
 use async_trait::async_trait;
@@ -48,8 +47,8 @@ fn main() {
 This will compile and run, but it doesn't do anything interesting.
 
 ### Create a load balancer proxy
-
 Next let's create a load balancer. Our load balancer holds a static list of upstream IPs. The `bongonet-load-balancing` crate already provides the `LoadBalancer` struct with common selection algorithms such as round robin and hashing. So let’s just use it. If the use case requires more sophisticated or customized server selection logic, users can simply implement it themselves in this function.
+
 
 ```rust
 pub struct LB(Arc<LoadBalancer<RoundRobin>>);
@@ -106,8 +105,8 @@ impl ProxyHttp for LB {
 }
 ```
 
-### Create a bongonet-proxy service
 
+### Create a bongonet-proxy service
 Next, let's create a proxy service that follows the instructions of the load balancer above.
 
 A bongonet `Service` listens to one or multiple (TCP or Unix domain socket) endpoints. When a new connection is established
@@ -115,7 +114,7 @@ the `Service` hands the connection over to its "application." `bongonet-proxy` i
 which proxies the HTTP request to the given backend as configured above.
 
 In the example below, we create a `LB` instance with two backends `1.1.1.1:443` and `1.0.0.1:443`.
-We put that `LB` instance to a proxy `Service` via the `http_proxy_service()` call and then tell our
+We put that `LB` instance to a proxy `Service` via the  `http_proxy_service()` call and then tell our
 `Server` to host that proxy `Service`.
 
 ```rust
@@ -137,13 +136,12 @@ fn main() {
 
 ### Run it
 
-Now that we have added the load balancer to the service, we can run our new
-project with
+Now that we have added the load balancer to the service, we can run our new 
+project with 
 
-`cargo run`
+```cargo run```
 
 To test it, simply send the server a few requests with the command:
-
 ```
 curl 127.0.0.1:6188 -svo /dev/null
 ```
@@ -151,7 +149,6 @@ curl 127.0.0.1:6188 -svo /dev/null
 You can also navigate your browser to [http://localhost:6188](http://localhost:6188)
 
 The following output shows that the load balancer is doing its job to balance across the two backends:
-
 ```
 upstream peer is: Backend { addr: Inet(1.0.0.1:443), weight: 1 }
 upstream peer is: Backend { addr: Inet(1.1.1.1:443), weight: 1 }
@@ -161,24 +158,24 @@ upstream peer is: Backend { addr: Inet(1.0.0.1:443), weight: 1 }
 ...
 ```
 
-Well done! At this point you have a functional load balancer. It is a _very_
+Well done! At this point you have a functional load balancer. It is a _very_ 
 basic load balancer though, so the next section will walk you through how to
 make it more robust with some built-in bongonet tooling.
 
 ## Add functionality
 
-Bongonet provides several helpful features that can be enabled and configured
-with just a few lines of code. These range from simple peer health checks to
+Bongonet provides several helpful features that can be enabled and configured 
+with just a few lines of code. These range from simple peer health checks to 
 the ability to seamlessly update running binary with zero service interruptions.
 
 ### Peer health checks
 
-To make our load balancer more reliable, we would like to add some health checks
-to our upstream peers. That way if there is a peer that has gone down, we can
+To make our load balancer more reliable, we would like to add some health checks 
+to our upstream peers. That way if there is a peer that has gone down, we can 
 quickly stop routing our traffic to that peer.
 
 First let's see how our simple load balancer behaves when one of the peers is
-down. To do this, we'll update the list of peers to include a peer that is
+down. To do this, we'll update the list of peers to include a peer that is 
 guaranteed to be broken.
 
 ```rust
@@ -190,16 +187,16 @@ fn main() {
 }
 ```
 
-Now if we run our load balancer again with `cargo run`, and test it with
+Now if we run our load balancer again with `cargo run`, and test it with 
 
 ```
 curl 127.0.0.1:6188 -svo /dev/null
 ```
 
-We can see that one in every 3 request fails with `502: Bad Gateway`. This is
-because our peer selection is strictly following the `RoundRobin` selection
+We can see that one in every 3 request fails with `502: Bad Gateway`. This is 
+because our peer selection is strictly following the `RoundRobin` selection 
 pattern we gave it with no consideration to whether that peer is healthy. We can
-fix this by adding a basic health check service.
+fix this by adding a basic health check service. 
 
 ```rust
 fn main() {
@@ -228,15 +225,15 @@ fn main() {
 }
 ```
 
-Now if we again run and test our load balancer, we see that all requests
-succeed and the broken peer is never used. Based on the configuration we used,
+Now if we again run and test our load balancer, we see that all requests 
+succeed and the broken peer is never used. Based on the configuration we used, 
 if that peer were to become healthy again, it would be re-included in the round
 robin again in within 1 second.
 
 ### Command line options
 
 The bongonet `Server` type provides a lot of built-in functionality that we can
-take advantage of with single-line change.
+take advantage of with single-line change. 
 
 ```rust
 fn main() {
@@ -245,15 +242,15 @@ fn main() {
 }
 ```
 
-With this change, the command-line arguments passed to our load balancer will be
+With this change, the command-line arguments passed to our load balancer will be 
 consumed by Bongonet. We can test this by running:
 
 ```
 cargo run -- -h
 ```
 
-We should see a help menu with the list of arguments now available to us. We
-will take advantage of those in the next sections to do more with our load
+We should see a help menu with the list of arguments now available to us. We 
+will take advantage of those in the next sections to do more with our load 
 balancer for free
 
 ### Running in the background
@@ -265,18 +262,15 @@ cargo run -- -d
 ```
 
 To stop this service, you can send `SIGTERM` signal to it for a graceful shutdown, in which the service will stop accepting new request but try to finish all ongoing requests before exiting.
-
 ```
 pkill -SIGTERM load_balancer
 ```
-
-(`SIGTERM` is the default signal for `pkill`.)
+ (`SIGTERM` is the default signal for `pkill`.)
 
 ### Configurations
-
-Bongonet configuration files help define how to run the service. Here is an
-example config file that defines how many threads the service can have, the
-location of the pid file, the error log file, and the upgrade coordination
+Bongonet configuration files help define how to run the service. Here is an 
+example config file that defines how many threads the service can have, the 
+location of the pid file, the error log file, and the upgrade coordination 
 socket (which we will explain later). Copy the contents below and put them into
 a file called `conf.yaml` in your `load_balancer` project directory.
 
@@ -290,21 +284,17 @@ upgrade_sock: /tmp/load_balancer.sock
 ```
 
 To use this conf file:
-
 ```
 RUST_LOG=INFO cargo run -- -c conf.yaml -d
 ```
-
 `RUST_LOG=INFO` is here so that the service actually populate the error log.
 
 Now you can find the pid of the service.
-
 ```
  cat /tmp/load_balancer.pid
 ```
 
 ### Gracefully upgrade the service
-
 (Linux only)
 
 Let's say we changed the code of the load balancer and recompiled the binary. Now we want to upgrade the service running in the background to this newer version.

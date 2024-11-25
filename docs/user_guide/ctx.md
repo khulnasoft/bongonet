@@ -1,7 +1,6 @@
 # Sharing state across phases with `CTX`
 
 ## Using `CTX`
-
 The custom filters users implement in different phases of the request don't interact with each other directly. In order to share information and state across the filters, users can define a `CTX` struct. Each request owns a single `CTX` object. All the filters are able to read and update members of the `CTX` object. The CTX object will be dropped at the end of the request.
 
 ### Example
@@ -51,11 +50,10 @@ impl ProxyHttp for MyProxy {
 ```
 
 ## Sharing state across requests
-
 Sharing state such as a counter, cache and other info across requests is common. There is nothing special needed for sharing resources and data across requests in Bongonet. `Arc`, `static` or any other mechanism can be used.
 
-### Example
 
+### Example
 Let's modify the example above to track the number of beta visitors as well as the number of total visitors. The counters can either be defined in the `MyProxy` struct itself or defined as a global variable. Because the counters can be concurrently accessed, Mutex is used here.
 
 ```Rust
@@ -113,7 +111,6 @@ impl ProxyHttp for MyProxy {
 ```
 
 The complete example can be found under [`bongonet-proxy/examples/ctx.rs`](../../bongonet-proxy/examples/ctx.rs). You can run it using `cargo`:
-
 ```
 RUST_LOG=INFO cargo run --example ctx
 ```

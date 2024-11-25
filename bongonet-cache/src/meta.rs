@@ -16,7 +16,7 @@
 
 use bongonet_error::{Error, ErrorType::*, OrErr, Result};
 use bongonet_http::{HMap, ResponseHeader};
-use http::Extensions;
+pub use http::Extensions;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 
@@ -595,8 +595,19 @@ fn load_file(path: &String) -> Option<Vec<u8>> {
 }
 
 static HEADER_SERDE: Lazy<HeaderSerde> = Lazy::new(|| {
-    let dict = COMPRESSION_DICT_PATH.get().and_then(load_file);
-    HeaderSerde::new(dict)
+    let dict_path_opt = COMPRESSION_DICT_PATH.get();
+
+    if dict_path_opt.is_none() {
+        warn!("COMPRESSION_DICT_PATH is not set");
+    }
+
+    let result = dict_path_opt.and_then(load_file);
+
+    if result.is_none() {
+        warn!("HeaderSerde not loaded from file");
+    }
+
+    HeaderSerde::new(result)
 });
 
 pub(crate) fn header_serialize(header: &ResponseHeader) -> Result<Vec<u8>> {

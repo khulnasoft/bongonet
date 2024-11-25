@@ -20,7 +20,7 @@ use bongonet_cache::{HitStatus, RespCacheable::*};
 use bongonet_core::protocols::http::conditional_filter::to_304;
 use bongonet_core::protocols::http::v1::common::header_value_content_length;
 use bongonet_core::ErrorType;
-use http::StatusCode;
+use http::{Method, StatusCode};
 
 impl<SV> HttpProxy<SV> {
     // return bool: server_session can be reused, and error if any
@@ -153,6 +153,7 @@ impl<SV> HttpProxy<SV> {
                                 {
                                     // Put the write lock in the request
                                     session.cache.set_write_lock(write_lock);
+                                    session.cache.tag_as_subrequest();
                                     // and then let it go to upstream
                                     break None;
                                 }
@@ -309,7 +310,23 @@ impl<SV> HttpProxy<SV> {
             }
             loop {
                 match session.cache.hit_handler().read_body().await {
-                    Ok(body) => {
+                    Ok(mut body) => {
+                        let end = body.is_none();
+                        match self
+                            .inner
+                            .response_body_filter(session, &mut body, end, ctx)
+                        {
+                            Ok(Some(duration)) => {
+                                trace!("delaying response for {duration:?}");
+                                time::sleep(duration).await;
+                            }
+                            Ok(None) => { /* continue */ }
+                            Err(e) => {
+                                // body is being sent, don't treat downstream as reusable
+                                return (false, Some(e));
+                            }
+                        }
+
                         if let Some(b) = body {
                             // write to downstream
                             if let Err(e) = session
@@ -425,7 +442,7 @@ impl<SV> HttpProxy<SV> {
                             // the request to fail when the chunked response exceeds the maximum
                             // file size again.
                             if session.cache.max_file_size_bytes().is_some()
-                                && !header.headers.contains_key(header::CONTENT_LENGTH)
+                                && !meta.headers().contains_key(header::CONTENT_LENGTH)
                             {
                                 session.cache.disable(NoCacheReason::ResponseTooLarge);
                                 return Ok(());
@@ -433,14 +450,16 @@ impl<SV> HttpProxy<SV> {
 
                             session.cache.response_became_cacheable();
 
-                            if header.status == StatusCode::OK {
+                            if session.req_header().method == Method::GET
+                                && meta.response_header().status == StatusCode::OK
+                            {
                                 self.inner.cache_miss(session, ctx);
                             } else {
                                 // we've allowed caching on the next request,
                                 // but do not cache _this_ request if bypassed and not 200
                                 // (We didn't run upstream request cache filters to strip range or condition headers,
-                                // so this could be an uncacheable response e.g. 206 or 304.
-                                // Exclude all non-200 for simplicity, may expand allowable codes in the future.)
+                                // so this could be an uncacheable response e.g. 206 or 304 or HEAD.
+                                // Exclude all non-200/GET for simplicity, may expand allowable codes in the future.)
                                 fill_cache = false;
                                 session.cache.disable(NoCacheReason::Deferred);
                             }
@@ -450,7 +469,7 @@ impl<SV> HttpProxy<SV> {
                         // on the cache, validate that the response does not exceed the maximum asset size.
                         if session.cache.enabled() {
                             if let Some(max_file_size) = session.cache.max_file_size_bytes() {
-                                let content_length_hdr = header.headers.get(header::CONTENT_LENGTH);
+                                let content_length_hdr = meta.headers().get(header::CONTENT_LENGTH);
                                 if let Some(content_length) =
                                     header_value_content_length(content_length_hdr)
                                 {
@@ -648,8 +667,18 @@ impl<SV> HttpProxy<SV> {
                         None,
                         None,
                     );
-                    self.inner
+                    if self
+                        .inner
                         .should_serve_stale(session, ctx, Some(&http_status_error))
+                    {
+                        // no more need to keep the write lock
+                        session
+                            .cache
+                            .release_write_lock(NoCacheReason::UpstreamError);
+                        true
+                    } else {
+                        false
+                    }
                 } else {
                     false // not 304, not stale if error status code
                 }
@@ -692,6 +721,11 @@ impl<SV> HttpProxy<SV> {
             error,
             self.inner.request_summary(session, ctx)
         );
+
+        // no more need to hang onto the cache lock
+        session
+            .cache
+            .release_write_lock(NoCacheReason::UpstreamError);
 
         Some(self.proxy_cache_hit(session, ctx).await)
     }
@@ -919,6 +953,27 @@ pub(crate) mod range_filter {
             return RangeType::None;
         };
 
+        // if-range wants to understand if the Last-Modified / ETag value matches exactly for use
+        // with resumable downloads.
+        // https://datatracker.ietf.org/doc/html/rfc9110#name-if-range
+        // Note that the RFC wants strong validation, and suggests that
+        // "A valid entity-tag can be distinguished from a valid HTTP-date
+        // by examining the first three characters for a DQUOTE,"
+        // but this current etag matching behavior most closely mirrors nginx.
+        if let Some(if_range) = req.headers.get(IF_RANGE) {
+            let ir = if_range.as_bytes();
+            let matches = if ir.len() >= 2 && ir.last() == Some(&b'"') {
+                resp.headers.get(ETAG).is_some_and(|etag| etag == if_range)
+            } else if let Some(last_modified) = resp.headers.get(LAST_MODIFIED) {
+                last_modified == if_range
+            } else {
+                false
+            };
+            if !matches {
+                return RangeType::None;
+            }
+        }
+
         // TODO: we can also check Accept-Range header from resp. Nginx gives uses the option
         // see proxy_force_ranges
 
@@ -996,6 +1051,61 @@ pub(crate) mod range_filter {
             resp.headers.get("content-range").unwrap().as_bytes(),
             b"bytes */10"
         );
+    }
+
+    #[test]
+    fn test_if_range() {
+        const DATE: &str = "Fri, 07 Jul 2023 22:03:29 GMT";
+        const ETAG: &str = "\"1234\"";
+
+        fn gen_req() -> RequestHeader {
+            let mut req = RequestHeader::build(http::Method::GET, b"/", Some(1)).unwrap();
+            req.append_header("Range", "bytes=0-1").unwrap();
+            req
+        }
+        fn gen_resp() -> ResponseHeader {
+            let mut resp = ResponseHeader::build(200, Some(1)).unwrap();
+            resp.append_header("Content-Length", "10").unwrap();
+            resp.append_header("Last-Modified", DATE).unwrap();
+            resp.append_header("ETag", ETAG).unwrap();
+            resp
+        }
+
+        // matching Last-Modified date
+        let mut req = gen_req();
+        req.insert_header("If-Range", DATE).unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(
+            RangeType::new_single(0, 2),
+            range_header_filter(&req, &mut resp)
+        );
+
+        // non-matching date
+        let mut req = gen_req();
+        req.insert_header("If-Range", "Fri, 07 Jul 2023 22:03:25 GMT")
+            .unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(RangeType::None, range_header_filter(&req, &mut resp));
+
+        // match ETag
+        let mut req = gen_req();
+        req.insert_header("If-Range", ETAG).unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(
+            RangeType::new_single(0, 2),
+            range_header_filter(&req, &mut resp)
+        );
+
+        // non-matching ETags do not result in range
+        let mut req = gen_req();
+        req.insert_header("If-Range", "\"4567\"").unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(RangeType::None, range_header_filter(&req, &mut resp));
+
+        let mut req = gen_req();
+        req.insert_header("If-Range", "1234").unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(RangeType::None, range_header_filter(&req, &mut resp));
     }
 
     pub struct RangeBodyFilter {

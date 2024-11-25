@@ -19,9 +19,12 @@
 //! more endpoints to listen to.
 
 use crate::apps::ServerApp;
-use crate::listeners::{Listeners, ServerAddress, TcpSocketOptions, TlsSettings, TransportStack};
+use crate::listeners::tls::TlsSettings;
+use crate::listeners::{Listeners, ServerAddress, TcpSocketOptions, TransportStack};
 use crate::protocols::Stream;
-use crate::server::{ListenFds, ShutdownWatch};
+#[cfg(unix)]
+use crate::server::ListenFds;
+use crate::server::ShutdownWatch;
 use crate::services::Service as ServiceTrait;
 
 use async_trait::async_trait;
@@ -83,6 +86,7 @@ impl<A> Service<A> {
     ///
     /// Optionally take a permission of the socket file. The default is read and write access for
     /// everyone (0o666).
+    #[cfg(unix)]
     pub fn add_uds(&mut self, addr: &str, perm: Option<Permissions>) {
         self.listeners.add_uds(addr, perm);
     }
@@ -136,11 +140,6 @@ impl<A: ServerApp + Send + Sync + 'static> Service<A> {
         mut stack: TransportStack,
         mut shutdown: ShutdownWatch,
     ) {
-        if let Err(e) = stack.listen().await {
-            error!("Listen() failed: {e}");
-            return;
-        }
-
         // the accept loop, until the system is shutting down
         loop {
             let new_io = tokio::select! { // TODO: consider biased for perf reason?
@@ -201,9 +200,21 @@ impl<A: ServerApp + Send + Sync + 'static> Service<A> {
 
 #[async_trait]
 impl<A: ServerApp + Send + Sync + 'static> ServiceTrait for Service<A> {
-    async fn start_service(&mut self, fds: Option<ListenFds>, shutdown: ShutdownWatch) {
+    async fn start_service(
+        &mut self,
+        #[cfg(unix)] fds: Option<ListenFds>,
+        shutdown: ShutdownWatch,
+    ) {
         let runtime = current_handle();
-        let endpoints = self.listeners.build(fds);
+        let endpoints = self
+            .listeners
+            .build(
+                #[cfg(unix)]
+                fds,
+            )
+            .await
+            .expect("Failed to build listeners");
+
         let app_logic = self
             .app_logic
             .take()

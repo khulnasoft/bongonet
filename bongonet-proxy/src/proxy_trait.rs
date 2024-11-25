@@ -267,7 +267,8 @@ pub trait ProxyHttp {
         _body: &mut Option<Bytes>,
         _end_of_stream: bool,
         _ctx: &mut Self::CTX,
-    ) {
+    ) -> Result<()> {
+        Ok(())
     }
 
     /// Similar to [Self::upstream_response_filter()] but for response trailers
@@ -425,7 +426,8 @@ pub trait ProxyHttp {
         _session: &mut Session,
         _reused: bool,
         _peer: &HttpPeer,
-        _fd: std::os::unix::io::RawFd,
+        #[cfg(unix)] _fd: std::os::unix::io::RawFd,
+        #[cfg(windows)] _sock: std::os::windows::io::RawSocket,
         _digest: Option<&Digest>,
         _ctx: &mut Self::CTX,
     ) -> Result<()>

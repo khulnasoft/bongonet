@@ -2,9 +2,10 @@
 
 (Special thanks to [James Munns](https://github.com/jamesmunns) for writing this section)
 
+
 ## Starting the `Server`
 
-The bongonet system starts by spawning a _server_. The server is responsible for starting _services_, and listening for termination events.
+The bongonet system starts by spawning a *server*. The server is responsible for starting *services*, and listening for termination events.
 
 ```
                                ┌───────────┐
@@ -18,13 +19,13 @@ The bongonet system starts by spawning a _server_. The server is responsible for
                                └───────────┘
 ```
 
-After spawning the _services_, the server continues to listen to a termination event, which it will propagate to the created services.
+After spawning the *services*, the server continues to listen to a termination event, which it will propagate to the created services.
 
 ## Services
 
-_Services_ are entities that handle listening to given sockets, and perform the core functionality. A _service_ is tied to a particular protocol and set of options.
+*Services* are entities that handle listening to given sockets, and perform the core functionality. A *service* is tied to a particular protocol and set of options.
 
-> NOTE: there are also "background" services, which just do _stuff_, and aren't necessarily listening to a socket. For now we're just talking about listener services.
+> NOTE: there are also "background" services, which just do *stuff*, and aren't necessarily listening to a socket. For now we're just talking about listener services.
 
 Each service has its own threadpool/tokio runtime, with a number of threads based on the configured value. Worker threads are not shared cross-service. Service runtime threadpools may be work-stealing (tokio-default), or non-work-stealing (N isolated single threaded runtimes).
 
@@ -224,14 +225,14 @@ of a "style".
 
 Connectors are responsible for a few things:
 
-- Establishing a connection with a Peer
-- Maintaining a connection pool with the Peer, allowing for connection reuse across:
-  - Multiple requests from a single downstream client
-  - Multiple requests from different downstream clients
-- Measuring health of connections, for connections like H2, which perform regular pings
-- Handling protocols with multiple poolable layers, like H2
-- Caching, if relevant to the protocol and enabled
-- Compression, if relevant to the protocol and enabled
+* Establishing a connection with a Peer
+* Maintaining a connection pool with the Peer, allowing for connection reuse across:
+    * Multiple requests from a single downstream client
+    * Multiple requests from different downstream clients
+* Measuring health of connections, for connections like H2, which perform regular pings
+* Handling protocols with multiple poolable layers, like H2
+* Caching, if relevant to the protocol and enabled
+* Compression, if relevant to the protocol and enabled
 
 Now in context, we can see how each end of the Proxy is handled:
 

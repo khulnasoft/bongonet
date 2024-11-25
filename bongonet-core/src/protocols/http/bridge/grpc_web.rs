@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn grpc_web_request_upgrade() {
-        let request = Request::get("https://bongonet.khulnasoft.com/")
+        let request = Request::get("https://bongonet.org/")
             .header(CONTENT_TYPE, "application/gRPC-web+thrift")
             .version(Version::HTTP_2) // only set this to verify send_end_stream is configured
             .body(())

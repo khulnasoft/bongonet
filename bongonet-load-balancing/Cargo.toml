@@ -1,7 +1,7 @@
 [package]
 name = "bongonet-load-balancing"
-version = "0.3.0"
-authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+version = "0.4.0"
+authors = ["Md Sulaiman <dev.sulaiman@icloud.com>"]
 license = "Apache-2.0"
 edition = "2021"
 repository = "https://github.com/khulnasoft/bongonet"
@@ -18,11 +18,11 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = { workspace = true }
-bongonet-http = { version = "0.3.0", path = "../bongonet-http" }
-bongonet-error = { version = "0.3.0", path = "../bongonet-error" }
-bongonet-core = { version = "0.3.0", path = "../bongonet-core", default-features = false }
-bongonet-ketama = { version = "0.3.0", path = "../bongonet-ketama" }
-bongonet-runtime = { version = "0.3.0", path = "../bongonet-runtime" }
+bongonet-http = { version = "0.4.0", path = "../bongonet-http" }
+bongonet-error = { version = "0.4.0", path = "../bongonet-error" }
+bongonet-core = { version = "0.4.0", path = "../bongonet-core", default-features = false }
+bongonet-ketama = { version = "0.4.0", path = "../bongonet-ketama" }
+bongonet-runtime = { version = "0.4.0", path = "../bongonet-runtime" }
 arc-swap = "1"
 fnv = "1"
 rand = "0"
@@ -35,6 +35,9 @@ derivative = "2.2.0"
 [dev-dependencies]
 
 [features]
-default = ["openssl"]
-openssl = ["bongonet-core/openssl"]
-boringssl = ["bongonet-core/boringssl"]
+default = []
+openssl = ["bongonet-core/openssl", "openssl_derived"]
+boringssl = ["bongonet-core/boringssl", "openssl_derived"]
+rustls = ["bongonet-core/rustls", "any_tls"]
+openssl_derived = ["any_tls"]
+any_tls = []

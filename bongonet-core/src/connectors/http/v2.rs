@@ -85,9 +85,12 @@ impl ConnectionRef {
             release_lock: Arc::new(Mutex::new(())),
         }))
     }
+
     pub fn more_streams_allowed(&self) -> bool {
+        let current = self.0.current_streams.load(Ordering::Relaxed);
         !self.is_shutting_down()
-            && self.0.max_streams > self.0.current_streams.load(Ordering::Relaxed)
+            && self.0.max_streams > current
+            && self.0.connection_stub.0.current_max_send_streams() > current
     }
 
     pub fn is_idle(&self) -> bool {
@@ -460,7 +463,7 @@ mod tests {
     use crate::upstreams::peer::HttpPeer;
 
     #[tokio::test]
-    #[cfg(feature = "some_tls")]
+    #[cfg(feature = "any_tls")]
     async fn test_connect_h2() {
         let connector = Connector::new(None);
         let mut peer = HttpPeer::new(("1.1.1.1", 443), true, "one.one.one.one".into());
@@ -473,7 +476,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "some_tls")]
+    #[cfg(feature = "any_tls")]
     async fn test_connect_h1() {
         let connector = Connector::new(None);
         let mut peer = HttpPeer::new(("1.1.1.1", 443), true, "one.one.one.one".into());
@@ -499,7 +502,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "some_tls")]
+    #[cfg(feature = "any_tls")]
     async fn test_h2_single_stream() {
         let connector = Connector::new(None);
         let mut peer = HttpPeer::new(("1.1.1.1", 443), true, "one.one.one.one".into());
@@ -531,7 +534,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "some_tls")]
+    #[cfg(feature = "any_tls")]
     async fn test_h2_multiple_stream() {
         let connector = Connector::new(None);
         let mut peer = HttpPeer::new(("1.1.1.1", 443), true, "one.one.one.one".into());

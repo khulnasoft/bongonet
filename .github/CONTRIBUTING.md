@@ -16,19 +16,18 @@ module built on top of or for use with Bongonet and encourage you to pursue that
 
 **You do not need to file an issue for small fixes.** What counts as a "small" or trivial fix is a
 judgment call, so here's a few examples to clarify:
-
 - fixing a typo
 - refactoring a bit of code
 - most documentation or comment edits
 
-Still, *sometimes* we may review your PR and ask you to file an issue if we expect there are larger
+Still, _sometimes_ we may review your PR and ask you to file an issue if we expect there are larger
 design decisions to be made.
 
 ## Making a PR
 
 After you've filed an issue, you can make your PR referencing that issue number. Once you open your
-PR, it will be labelled *Needs Review*. A maintainer will review your PR as soon as they can. The
-reviewer may ask for changes - they will mark the PR as *Changes Requested* and will give you
+PR, it will be labelled _Needs Review_. A maintainer will review your PR as soon as they can. The
+reviewer may ask for changes - they will mark the PR as _Changes Requested_ and will give you
 details about the requested changes. Feel free to ask lots of questions! The maintainers are there
 to help you.
 

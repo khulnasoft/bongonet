@@ -1,7 +1,7 @@
 [package]
 name = "bongonet-proxy"
-version = "0.3.0"
-authors = ["Yuchen Wu <yuchen@khulnasoft.com>"]
+version = "0.4.0"
+authors = ["Md Sulaiman <dev.sulaiman@icloud.com>"]
 license = "Apache-2.0"
 edition = "2021"
 repository = "https://github.com/khulnasoft/bongonet"
@@ -18,12 +18,11 @@ name = "bongonet_proxy"
 path = "src/lib.rs"
 
 [dependencies]
-bongonet-error = { version = "0.3.0", path = "../bongonet-error" }
-bongonet-core = { version = "0.3.0", path = "../bongonet-core", default-features = false }
-bongonet-timeout = { version = "0.3.0", path = "../bongonet-timeout" }
-bongonet-cache = { version = "0.3.0", path = "../bongonet-cache", default-features = false }
+bongonet-error = { version = "0.4.0", path = "../bongonet-error" }
+bongonet-core = { version = "0.4.0", path = "../bongonet-core", default-features = false }
+bongonet-cache = { version = "0.4.0", path = "../bongonet-cache", default-features = false }
 tokio = { workspace = true, features = ["macros", "net"] }
-bongonet-http = { version = "0.3.0", path = "../bongonet-http" }
+bongonet-http = { version = "0.4.0", path = "../bongonet-http" }
 http = { workspace = true }
 futures = "0.3"
 bytes = { workspace = true }
@@ -37,14 +36,14 @@ regex = "1"
 [dev-dependencies]
 reqwest = { version = "0.11", features = [
     "gzip",
-    "rustls",
+    "rustls-tls",
 ], default-features = false }
 tokio-test = "0.4"
 env_logger = "0.9"
 hyper = "0.14"
 tokio-tungstenite = "0.20.1"
-bongonet-limits = { version = "0.3.0", path = "../bongonet-limits" }
-bongonet-load-balancing = { version = "0.3.0", path = "../bongonet-load-balancing" }
+bongonet-limits = { version = "0.4.0", path = "../bongonet-limits" }
+bongonet-load-balancing = { version = "0.4.0", path = "../bongonet-load-balancing", default-features=false }
 prometheus = "0"
 futures-util = "0.3"
 serde = { version = "1.0", features = ["derive"] }
@@ -55,9 +54,13 @@ serde_yaml = "0.8"
 hyperlocal = "0.8"
 
 [features]
-default = ["openssl"]
-openssl = ["bongonet-core/openssl", "bongonet-cache/openssl"]
-boringssl = ["bongonet-core/boringssl", "bongonet-cache/boringssl"]
+default = []
+openssl = ["bongonet-core/openssl", "bongonet-cache/openssl", "openssl_derived"]
+boringssl = ["bongonet-core/boringssl", "bongonet-cache/boringssl", "openssl_derived"]
+rustls = ["bongonet-core/rustls", "bongonet-cache/rustls", "any_tls"]
+openssl_derived = ["any_tls"]
+any_tls = []
+sentry = ["bongonet-core/sentry"]
 
 # or locally cargo doc --config "build.rustdocflags='--cfg doc_async_trait'"
 [package.metadata.docs.rs]
