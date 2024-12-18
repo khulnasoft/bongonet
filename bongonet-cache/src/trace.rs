@@ -45,6 +45,9 @@ impl CacheTraceCTX {
     pub fn enable(&mut self, cache_span: Span) {
         self.cache_span = cache_span;
     }
+    pub fn get_cache_span(&self) -> SpanHandle {
+        self.cache_span.handle()
+    }
 
     #[inline]
     pub fn child(&self, name: &'static str) -> Span {
@@ -68,6 +71,10 @@ impl CacheTraceCTX {
         self.hit_span.set_tag(|| Tag::new("phase", phase.as_str()));
         self.hit_span
             .set_tag(|| Tag::new("status", hit_status.as_str()));
+    }
+
+    pub fn get_hit_span(&self) -> SpanHandle {
+        self.hit_span.handle()
     }
 
     pub fn finish_hit_span(&mut self) {
