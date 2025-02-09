@@ -89,8 +89,8 @@ jemallocator = "0.5"
 
 [features]
 default = []
-openssl = ["bongonet-openssl", "openssl_derived",]
-boringssl = ["bongonet-boringssl", "openssl_derived",]
+openssl = ["pingora-openssl", "openssl_derived"]
+boringssl = ["pingora-boringssl", "openssl_derived"]
 rustls = ["bongonet-rustls", "any_tls", "dep:x509-parser", "ouroboros"]
 patched_http1 = ["bongonet-http/patched_http1"]
 openssl_derived = ["any_tls"]
