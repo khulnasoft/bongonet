@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,7 +65,6 @@ use bongonet_core::server::ShutdownWatch;
 use bongonet_core::upstreams::peer::{HttpPeer, Peer};
 use bongonet_error::{Error, ErrorSource, ErrorType::*, OrErr, Result};
 
-const MAX_RETRIES: usize = 16;
 const TASK_BUFFER_SIZE: usize = 4;
 
 mod proxy_cache;
@@ -78,6 +77,7 @@ mod subrequest;
 
 use subrequest::Ctx as SubReqCtx;
 
+pub use proxy_cache::range_filter::{range_header_filter, RangeType};
 pub use proxy_purge::PurgeStatus;
 pub use proxy_trait::ProxyHttp;
 
@@ -94,6 +94,7 @@ pub struct HttpProxy<SV> {
     shutdown: Notify,
     pub server_options: Option<HttpServerOptions>,
     pub downstream_modules: HttpModules,
+    max_retries: usize,
 }
 
 impl<SV> HttpProxy<SV> {
@@ -104,6 +105,7 @@ impl<SV> HttpProxy<SV> {
             shutdown: Notify::new(),
             server_options: None,
             downstream_modules: HttpModules::new(),
+            max_retries: conf.max_retries,
         }
     }
 
@@ -143,9 +145,14 @@ impl<SV> HttpProxy<SV> {
             }
             Err(mut e) => {
                 e.as_down();
-                error!("Fail to proxy: {}", e);
+                error!("Fail to proxy: {e}");
                 if matches!(e.etype, InvalidHTTPHeader) {
-                    downstream_session.respond_error(400).await;
+                    downstream_session
+                        .respond_error(400)
+                        .await
+                        .unwrap_or_else(|e| {
+                            error!("failed to send error response to downstream: {e}");
+                        });
                 } // otherwise the connection must be broken, no need to send anything
                 downstream_session.shutdown().await;
                 return None;
@@ -344,16 +351,16 @@ impl Session {
         &self.downstream_session
     }
 
-    /// Write HTTP response with the given error code to the downstream
+    /// Write HTTP response with the given error code to the downstream.
     pub async fn respond_error(&mut self, error: u16) -> Result<()> {
-        let resp = HttpSession::generate_error(error);
-        self.write_response_header(Box::new(resp), true)
+        self.as_downstream_mut().respond_error(error).await
+    }
+
+    /// Write HTTP response with the given error code to the downstream with a body.
+    pub async fn respond_error_with_body(&mut self, error: u16, body: Bytes) -> Result<()> {
+        self.as_downstream_mut()
+            .respond_error_with_body(error, body)
             .await
-            .unwrap_or_else(|e| {
-                self.downstream_session.set_keepalive(None);
-                error!("failed to send error response to downstream: {e}");
-            });
-        Ok(())
     }
 
     /// Write the given HTTP response header to the downstream
@@ -581,7 +588,7 @@ impl<SV> HttpProxy<SV> {
         let mut server_reuse = false;
         let mut proxy_error: Option<Box<Error>> = None;
 
-        while retries < MAX_RETRIES {
+        while retries < self.max_retries {
             retries += 1;
 
             let (reuse, e) = self.proxy_to_upstream(&mut session, &mut ctx).await;

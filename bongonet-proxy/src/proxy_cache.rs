@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@ use super::*;
 use bongonet_cache::key::CacheHashKey;
 use bongonet_cache::lock::LockStatus;
 use bongonet_cache::max_file_size::ERR_RESPONSE_TOO_LARGE;
-use bongonet_cache::{HitStatus, RespCacheable::*};
+use bongonet_cache::{ForcedInvalidationKind, HitStatus, RespCacheable::*};
 use bongonet_core::protocols::http::conditional_filter::to_304;
 use bongonet_core::protocols::http::v1::common::header_value_content_length;
 use bongonet_core::ErrorType;
 use http::{Method, StatusCode};
+use range_filter::RangeBodyFilter;
 
 impl<SV> HttpProxy<SV> {
     // return bool: server_session can be reused, and error if any
@@ -79,6 +80,7 @@ impl<SV> HttpProxy<SV> {
             // for cache lock, TODO: cap the max number of loops
             match session.cache.cache_lookup().await {
                 Ok(res) => {
+                    let mut hit_status_opt = None;
                     if let Some((mut meta, handler)) = res {
                         // Vary logic
                         // Because this branch can be called multiple times in a loop, and we only
@@ -112,10 +114,8 @@ impl<SV> HttpProxy<SV> {
                         // hit
                         // TODO: maybe round and/or cache now()
                         let hit_status = if meta.is_fresh(std::time::SystemTime::now()) {
-                            // check if we should force expire
-                            // (this is a soft purge which tries to revalidate,
+                            // check if we should force expire or miss
                             // vs. hard purge which forces miss)
-                            // TODO: allow hard purge
                             match self.inner.cache_hit_filter(session, &meta, ctx).await {
                                 Err(e) => {
                                     error!(
@@ -125,86 +125,26 @@ impl<SV> HttpProxy<SV> {
                                     // this return value will cause us to fetch from upstream
                                     HitStatus::FailedHitFilter
                                 }
-                                Ok(expired) => {
+                                Ok(None) => HitStatus::Fresh,
+                                Ok(Some(ForcedInvalidationKind::ForceExpired)) => {
                                     // force expired asset should not be serve as stale
                                     // because force expire is usually to remove data
-                                    if expired {
-                                        meta.disable_serve_stale();
-                                        HitStatus::ForceExpired
-                                    } else {
-                                        HitStatus::Fresh
-                                    }
+                                    meta.disable_serve_stale();
+                                    HitStatus::ForceExpired
                                 }
+                                Ok(Some(ForcedInvalidationKind::ForceMiss)) => HitStatus::ForceMiss,
                             }
                         } else {
                             HitStatus::Expired
                         };
+
+                        hit_status_opt = Some(hit_status);
+
                         // init cache for hit / stale
                         session.cache.cache_found(meta, handler, hit_status);
+                    }
 
-                        if !hit_status.is_fresh() {
-                            // expired or force expired asset
-                            if session.cache.is_cache_locked() {
-                                // first if this is the sub request for the background cache update
-                                if let Some(write_lock) = session
-                                    .subrequest_ctx
-                                    .as_mut()
-                                    .and_then(|ctx| ctx.write_lock.take())
-                                {
-                                    // Put the write lock in the request
-                                    session.cache.set_write_lock(write_lock);
-                                    session.cache.tag_as_subrequest();
-                                    // and then let it go to upstream
-                                    break None;
-                                }
-                                let will_serve_stale = session.cache.can_serve_stale_updating()
-                                    && self.inner.should_serve_stale(session, ctx, None);
-                                if !will_serve_stale {
-                                    let lock_status = session.cache.cache_lock_wait().await;
-                                    if self.handle_lock_status(session, ctx, lock_status) {
-                                        continue;
-                                    } else {
-                                        break None;
-                                    }
-                                }
-                                // else continue to serve stale
-                                session.cache.set_stale_updating();
-                            } else if session.cache.is_cache_lock_writer() {
-                                // stale while revalidate logic for the writer
-                                let will_serve_stale = session.cache.can_serve_stale_updating()
-                                    && self.inner.should_serve_stale(session, ctx, None);
-                                if will_serve_stale {
-                                    // create a background thread to do the actual update
-                                    let subrequest =
-                                        Box::new(crate::subrequest::create_dummy_session(session));
-                                    let new_app = self.clone(); // Clone the Arc
-                                    let sub_req_ctx = Box::new(SubReqCtx {
-                                        write_lock: Some(session.cache.take_write_lock()),
-                                    });
-                                    tokio::spawn(async move {
-                                        new_app.process_subrequest(subrequest, sub_req_ctx).await;
-                                    });
-                                    // continue to serve stale for this request
-                                    session.cache.set_stale_updating();
-                                } else {
-                                    // return to fetch from upstream
-                                    break None;
-                                }
-                            } else {
-                                // return to fetch from upstream
-                                break None;
-                            }
-                        }
-                        let (reuse, err) = self.proxy_cache_hit(session, ctx).await;
-                        if let Some(e) = err.as_ref() {
-                            error!(
-                                "Fail to serve cache: {e}, {}",
-                                self.inner.request_summary(session, ctx)
-                            );
-                        }
-                        // responses is served from cache, exit
-                        break Some((reuse, err));
-                    } else {
+                    if hit_status_opt.map_or(true, HitStatus::is_treated_as_miss) {
                         // cache miss
                         if session.cache.is_cache_locked() {
                             // Another request is filling the cache; try waiting til that's done and retry.
@@ -219,6 +159,74 @@ impl<SV> HttpProxy<SV> {
                             break None;
                         }
                     }
+
+                    // Safe because an empty hit status would have broken out
+                    // in the block above
+                    let hit_status = hit_status_opt.expect("None case handled as miss");
+
+                    if !hit_status.is_fresh() {
+                        // expired or force expired asset
+                        if session.cache.is_cache_locked() {
+                            // first if this is the sub request for the background cache update
+                            if let Some(write_lock) = session
+                                .subrequest_ctx
+                                .as_mut()
+                                .and_then(|ctx| ctx.write_lock.take())
+                            {
+                                // Put the write lock in the request
+                                session.cache.set_write_lock(write_lock);
+                                session.cache.tag_as_subrequest();
+                                // and then let it go to upstream
+                                break None;
+                            }
+                            let will_serve_stale = session.cache.can_serve_stale_updating()
+                                && self.inner.should_serve_stale(session, ctx, None);
+                            if !will_serve_stale {
+                                let lock_status = session.cache.cache_lock_wait().await;
+                                if self.handle_lock_status(session, ctx, lock_status) {
+                                    continue;
+                                } else {
+                                    break None;
+                                }
+                            }
+                            // else continue to serve stale
+                            session.cache.set_stale_updating();
+                        } else if session.cache.is_cache_lock_writer() {
+                            // stale while revalidate logic for the writer
+                            let will_serve_stale = session.cache.can_serve_stale_updating()
+                                && self.inner.should_serve_stale(session, ctx, None);
+                            if will_serve_stale {
+                                // create a background thread to do the actual update
+                                let subrequest =
+                                    Box::new(crate::subrequest::create_dummy_session(session));
+                                let new_app = self.clone(); // Clone the Arc
+                                let sub_req_ctx = Box::new(SubReqCtx {
+                                    write_lock: Some(session.cache.take_write_lock()),
+                                });
+                                tokio::spawn(async move {
+                                    new_app.process_subrequest(subrequest, sub_req_ctx).await;
+                                });
+                                // continue to serve stale for this request
+                                session.cache.set_stale_updating();
+                            } else {
+                                // return to fetch from upstream
+                                break None;
+                            }
+                        } else {
+                            // return to fetch from upstream
+                            break None;
+                        }
+                    }
+
+                    let (reuse, err) = self.proxy_cache_hit(session, ctx).await;
+                    if let Some(e) = err.as_ref() {
+                        error!(
+                            "Fail to serve cache: {e}, {}",
+                            self.inner.request_summary(session, ctx)
+                        );
+                    }
+                    // responses is served from cache, exit
+                    break Some((reuse, err));
                 }
                 Err(e) => {
                     // Allow cache miss to fill cache even if cache lookup errors
@@ -272,7 +280,7 @@ impl<SV> HttpProxy<SV> {
 
         // process range header if the cache storage supports seek
         let range_type = if seekable && !session.ignore_downstream_range {
-            range_header_filter(req, &mut header)
+            self.inner.range_header_filter(req, &mut header, ctx)
         } else {
             RangeType::None
         };
@@ -295,7 +303,13 @@ impl<SV> HttpProxy<SV> {
             }
             Err(e) => {
                 // TODO: more logging and error handling
-                session.as_mut().respond_error(500).await;
+                session
+                    .as_mut()
+                    .respond_error(500)
+                    .await
+                    .unwrap_or_else(|e| {
+                        error!("failed to send error response to downstream: {e}");
+                    });
                 // we have not write anything dirty to downstream, it is still reusable
                 return (true, Some(e));
             }
@@ -813,7 +827,7 @@ fn cache_hit_header(cache: &HttpCache) -> Box<ResponseHeader> {
 }
 
 // https://datatracker.ietf.org/doc/html/rfc7233#section-3
-pub(crate) mod range_filter {
+pub mod range_filter {
     use super::*;
     use http::header::*;
     use std::ops::Range;
@@ -1109,7 +1123,7 @@ pub(crate) mod range_filter {
     }
 
     pub struct RangeBodyFilter {
-        range: RangeType,
+        pub range: RangeType,
         current: usize,
     }
 
@@ -1191,13 +1205,13 @@ pub(crate) mod range_filter {
 // miss/revalidation/error.
 #[derive(Debug)]
 pub(crate) enum ServeFromCache {
-    Off,             // not using cache
-    CacheHeader,     // should serve cache header
-    CacheHeaderOnly, // should serve cache header
-    CacheBody,       // should serve cache body
+    Off,                 // not using cache
+    CacheHeader,         // should serve cache header
+    CacheHeaderOnly,     // should serve cache header
+    CacheBody(bool), // should serve cache body with a bool to indicate if it has already called seek on the hit handler
     CacheHeaderMiss, // should serve cache header but upstream response should be admitted to cache
-    CacheBodyMiss,   // should serve cache body but upstream response should be admitted to cache
-    Done,            // should serve cache body
+    CacheBodyMiss(bool), // should serve cache body but upstream response should be admitted to cache, bool to indicate seek status
+    Done,                // should serve cache body
 }
 
 impl ServeFromCache {
@@ -1210,7 +1224,7 @@ impl ServeFromCache {
     }
 
     pub fn is_miss(&self) -> bool {
-        matches!(self, Self::CacheHeaderMiss | Self::CacheBodyMiss)
+        matches!(self, Self::CacheHeaderMiss | Self::CacheBodyMiss(_))
     }
 
     pub fn is_miss_header(&self) -> bool {
@@ -1218,7 +1232,7 @@ impl ServeFromCache {
     }
 
     pub fn is_miss_body(&self) -> bool {
-        matches!(self, Self::CacheBodyMiss)
+        matches!(self, Self::CacheBodyMiss(_))
     }
 
     pub fn should_discard_upstream(&self) -> bool {
@@ -1241,13 +1255,17 @@ impl ServeFromCache {
 
     pub fn enable_header_only(&mut self) {
         match self {
-            Self::CacheBody => *self = Self::Done, // TODO: make sure no body is read yet
+            Self::CacheBody(_) | Self::CacheBodyMiss(_) => *self = Self::Done, // TODO: make sure no body is read yet
             _ => *self = Self::CacheHeaderOnly,
         }
     }
 
     // This function is (best effort) cancel-safe to be used in select
-    pub async fn next_http_task(&mut self, cache: &mut HttpCache) -> Result<HttpTask> {
+    pub async fn next_http_task(
+        &mut self,
+        cache: &mut HttpCache,
+        range: &mut RangeBodyFilter,
+    ) -> Result<HttpTask> {
         if !cache.enabled() {
             // Cache is disabled due to internal error
             // TODO: if nothing is sent to eyeball yet, figure out a way to recovery by
@@ -1257,18 +1275,21 @@ impl ServeFromCache {
         match self {
             Self::Off => panic!("ProxyUseCache not enabled"),
             Self::CacheHeader => {
-                *self = Self::CacheBody;
+                *self = Self::CacheBody(true);
                 Ok(HttpTask::Header(cache_hit_header(cache), false)) // false for now
             }
             Self::CacheHeaderMiss => {
-                *self = Self::CacheBodyMiss;
+                *self = Self::CacheBodyMiss(true);
                 Ok(HttpTask::Header(cache_hit_header(cache), false)) // false for now
             }
             Self::CacheHeaderOnly => {
                 *self = Self::Done;
                 Ok(HttpTask::Header(cache_hit_header(cache), true))
             }
-            Self::CacheBody => {
+            Self::CacheBody(should_seek) => {
+                if *should_seek {
+                    self.maybe_seek_hit_handler(cache, range)?;
+                }
                 if let Some(b) = cache.hit_handler().read_body().await? {
                     Ok(HttpTask::Body(Some(b), false)) // false for now
                 } else {
@@ -1276,7 +1297,10 @@ impl ServeFromCache {
                     Ok(HttpTask::Done)
                 }
             }
-            Self::CacheBodyMiss => {
+            Self::CacheBodyMiss(should_seek) => {
+                if *should_seek {
+                    self.maybe_seek_miss_handler(cache, range)?;
+                }
                 // safety: called of enable_miss() call it only if the async_body_reader exist
                 if let Some(b) = cache.miss_body_reader().unwrap().read_body().await? {
                     Ok(HttpTask::Body(Some(b), false)) // false for now
@@ -1287,5 +1311,48 @@ impl ServeFromCache {
             }
             Self::Done => Ok(HttpTask::Done),
         }
+    }
+
+    fn maybe_seek_miss_handler(
+        &mut self,
+        cache: &mut HttpCache,
+        range_filter: &mut RangeBodyFilter,
+    ) -> Result<()> {
+        if let RangeType::Single(range) = &range_filter.range {
+            // safety: called only if the async_body_reader exists
+            if cache.miss_body_reader().unwrap().can_seek() {
+                cache
+                    .miss_body_reader()
+                    // safety: called only if the async_body_reader exists
+                    .unwrap()
+                    .seek(range.start, Some(range.end))
+                    .or_err(InternalError, "cannot seek miss handler")?;
+                // Because the miss body reader is seeking, we no longer need the
+                // RangeBodyFilter's help to return the requested byte range.
+                range_filter.range = RangeType::None;
+            }
+        }
+        *self = Self::CacheBodyMiss(false);
+        Ok(())
+    }
+
+    fn maybe_seek_hit_handler(
+        &mut self,
+        cache: &mut HttpCache,
+        range_filter: &mut RangeBodyFilter,
+    ) -> Result<()> {
+        if let RangeType::Single(range) = &range_filter.range {
+            if cache.hit_handler().can_seek() {
+                cache
+                    .hit_handler()
+                    .seek(range.start, Some(range.end))
+                    .or_err(InternalError, "cannot seek hit handler")?;
+                // Because the hit handler is seeking, we no longer need the
+                // RangeBodyFilter's help to return the requested byte range.
+                range_filter.range = RangeType::None;
+            }
+        }
+        *self = Self::CacheBody(false);
+        Ok(())
     }
 }
