@@ -1,35 +1,23 @@
-name: Publish Crate
+name: Publish release
 
 on:
-  push:
-    branches:
-      - main  # Change this if your default branch is different
+  release:
+    types: [published]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   publish:
-    name: Publish to crates.io
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo dependencies
-        uses: Swatinem/rust-cache@v2
-
-      - name: Publish to crates.io
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          for package in $(cargo metadata --format-version 1 --no-deps | jq -r '.packages[].name'); do
-            VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name=="'"$package"'") | .version')
-            if cargo search "$package" | grep -q "$VERSION"; then
-              echo "Skipping $package (version $VERSION already published)"
-            else
-              echo "Publishing $package (version $VERSION)..."
-              cargo publish -p $package --verbose || exit 1
-            fi
-          done
+    - uses: ./.github/actions/publish
+      name: Cargo publish
+      with:
+        token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        ref: ${{ github.ref }}
