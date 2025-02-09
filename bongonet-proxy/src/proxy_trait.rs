@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,12 @@
 // limitations under the License.
 
 use super::*;
-use bongonet_cache::{key::HashBinary, CacheKey, CacheMeta, RespCacheable, RespCacheable::*};
+use bongonet_cache::{
+    key::HashBinary,
+    CacheKey, CacheMeta, ForcedInvalidationKind,
+    RespCacheable::{self, *},
+};
+use proxy_cache::range_filter::{self};
 use std::time::Duration;
 
 /// The interface to control the HTTP proxy
@@ -129,21 +134,23 @@ pub trait ProxyHttp {
         session.cache.cache_miss();
     }
 
-    /// This filter is called after a successful cache lookup and before the cache asset is ready to
-    /// be used.
+    /// This filter is called after a successful cache lookup and before the
+    /// cache asset is ready to be used.
     ///
-    /// This filter allow the user to log or force expire the asset.
-    // flex purge, other filtering, returns whether asset is should be force expired or not
+    /// This filter allows the user to log or force invalidate the asset.
+    ///
+    /// The value returned indicates if the force invalidation should be used,
+    /// and which kind. Returning `None` indicates no forced invalidation
     async fn cache_hit_filter(
         &self,
         _session: &Session,
         _meta: &CacheMeta,
         _ctx: &mut Self::CTX,
-    ) -> Result<bool>
+    ) -> Result<Option<ForcedInvalidationKind>>
     where
         Self::CTX: Send + Sync,
     {
-        Ok(false)
+        Ok(None)
     }
 
     /// Decide if a request should continue to upstream after not being served from cache.
@@ -208,6 +215,23 @@ pub trait ProxyHttp {
                 resp,
             ),
         )
+    }
+
+    /// This filter is called when cache is enabled to determine what byte range to return (in both
+    /// cache hit and miss cases) from the response body. It is only used when caching is enabled,
+    /// otherwise the upstream is responsible for any filtering. It allows users to define the range
+    /// this request is for via its return type `range_filter::RangeType`.
+    ///
+    /// It also allow users to modify the response header accordingly.
+    ///
+    /// The default implementation can handle a single-range as per [RFC7232].
+    fn range_header_filter(
+        &self,
+        req: &RequestHeader,
+        resp: &mut ResponseHeader,
+        _ctx: &mut Self::CTX,
+    ) -> range_filter::RangeType {
+        proxy_cache::range_filter::range_header_filter(req, resp)
     }
 
     /// Modify the request before it is sent to the upstream
@@ -372,7 +396,6 @@ pub trait ProxyHttp {
     where
         Self::CTX: Send + Sync,
     {
-        let server_session = session.as_mut();
         let code = match e.etype() {
             HTTPStatus(code) => *code,
             _ => {
@@ -392,7 +415,9 @@ pub trait ProxyHttp {
             }
         };
         if code > 0 {
-            server_session.respond_error(code).await
+            session.respond_error(code).await.unwrap_or_else(|e| {
+                error!("failed to send error response to downstream: {e}");
+            });
         }
         code
     }

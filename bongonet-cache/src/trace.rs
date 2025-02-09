@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
 
 //! Distributed tracing helpers
 
-use rustracing_jaeger::span::SpanContextState;
+use cf_rustracing_jaeger::span::SpanContextState;
 use std::time::SystemTime;
 
 use crate::{CacheMeta, CachePhase, HitStatus};
 
-pub use rustracing::tag::Tag;
+pub use cf_rustracing::tag::Tag;
 
-pub type Span = rustracing::span::Span<SpanContextState>;
-pub type SpanHandle = rustracing::span::SpanHandle<SpanContextState>;
+pub type Span = cf_rustracing::span::Span<SpanContextState>;
+pub type SpanHandle = cf_rustracing::span::SpanHandle<SpanContextState>;
 
 #[derive(Debug)]
 pub(crate) struct CacheTraceCTX {
@@ -44,6 +44,10 @@ impl CacheTraceCTX {
 
     pub fn enable(&mut self, cache_span: Span) {
         self.cache_span = cache_span;
+    }
+
+    pub fn get_cache_span(&self) -> SpanHandle {
+        self.cache_span.handle()
     }
 
     #[inline]
@@ -68,6 +72,10 @@ impl CacheTraceCTX {
         self.hit_span.set_tag(|| Tag::new("phase", phase.as_str()));
         self.hit_span
             .set_tag(|| Tag::new("status", hit_status.as_str()));
+    }
+
+    pub fn get_hit_span(&self) -> SpanHandle {
+        self.hit_span.handle()
     }
 
     pub fn finish_hit_span(&mut self) {

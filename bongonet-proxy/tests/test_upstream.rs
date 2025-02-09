@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -385,6 +385,43 @@ mod test_cache {
 
         // still the old object
         assert_eq!(cache_expired_epoch, cache_hit_epoch);
+    }
+
+    #[tokio::test]
+    async fn test_force_miss() {
+        init();
+        let url = "http://127.0.0.1:6148/unique/test_froce_miss/revalidate_now";
+
+        let res = reqwest::get(url).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let headers = res.headers();
+        let cache_miss_epoch = headers["x-epoch"].to_str().unwrap().parse::<f64>().unwrap();
+        assert_eq!(headers["x-cache-status"], "miss");
+        assert_eq!(headers["x-upstream-status"], "200");
+        assert_eq!(res.text().await.unwrap(), "hello world");
+
+        let res = reqwest::get(url).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let headers = res.headers();
+        let cache_hit_epoch = headers["x-epoch"].to_str().unwrap().parse::<f64>().unwrap();
+        assert_eq!(headers["x-cache-status"], "hit");
+        assert!(headers.get("x-upstream-status").is_none());
+        assert_eq!(res.text().await.unwrap(), "hello world");
+
+        assert_eq!(cache_miss_epoch, cache_hit_epoch);
+
+        let res = reqwest::Client::new()
+            .get(url)
+            .header("x-force-miss", "1")
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), StatusCode::OK);
+        let headers = res.headers();
+        assert_eq!(headers["x-cache-status"], "miss");
+        assert_eq!(headers["x-upstream-status"], "200");
+        assert_eq!(res.text().await.unwrap(), "hello world");
     }
 
     #[tokio::test]

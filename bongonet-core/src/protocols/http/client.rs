@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ impl HttpSession {
                 h1.write_body(&data).await?;
                 Ok(())
             }
-            HttpSession::H2(h2) => h2.write_request_body(data, end),
+            HttpSession::H2(h2) => h2.write_request_body(data, end).await,
         }
     }
 

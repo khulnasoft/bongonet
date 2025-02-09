@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ use bongonet_core::protocols::http::{
 };
 use bytes::Bytes;
 use http::header;
+use log::warn;
 
 /// The interface to define cache put behavior
 pub trait CachePut {
@@ -112,15 +113,19 @@ impl<C: CachePut> CachePutCtx<C> {
             let cache_key = self.key.to_compact();
             let meta = self.meta.as_ref().unwrap();
             let evicted = eviction.admit(cache_key, size, meta.0.internal.fresh_until);
-            // TODO: make this async
+            // actual eviction can be done async
             let trace = self
                 .trace
                 .child("cache put eviction", |o| o.start())
                 .handle();
-            for item in evicted {
-                // TODO: warn/log the error
-                let _ = self.storage.purge(&item, PurgeType::Eviction, &trace).await;
-            }
+            let storage = self.storage;
+            tokio::task::spawn(async move {
+                for item in evicted {
+                    if let Err(e) = storage.purge(&item, PurgeType::Eviction, &trace).await {
+                        warn!("Failed to purge {item} during eviction for cache put: {e}");
+                    }
+                }
+            });
         }
 
         Ok(())
@@ -190,8 +195,8 @@ impl<C: CachePut> CachePutCtx<C> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use cf_rustracing::span::Span;
     use once_cell::sync::Lazy;
-    use rustracing::span::Span;
 
     struct TestCachePut();
     impl CachePut for TestCachePut {
