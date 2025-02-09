@@ -23,4 +23,13 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --workspace --verbose
+        run: |
+          for package in $(cargo metadata --format-version 1 --no-deps | jq -r '.packages[].name'); do
+            VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name=="'"$package"'") | .version')
+            if cargo search "$package" | grep -q "$VERSION"; then
+              echo "Skipping $package (version $VERSION already published)"
+            else
+              echo "Publishing $package (version $VERSION)..."
+              cargo publish -p $package --verbose || exit 1
+            fi
+          done
