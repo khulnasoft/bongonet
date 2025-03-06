@@ -528,7 +528,7 @@ impl<SV> HttpProxy<SV> {
 
         if let Some((reuse, err)) = self.proxy_cache(&mut session, &mut ctx).await {
             // cache hit
-            return self.finish(session, &mut ctx, reuse, err.as_deref()).await;
+            return self.finish(session, &mut ctx, true, None).await;
         }
         // either uncacheable, or cache miss
 
