@@ -32,10 +32,6 @@
 
 🛠 **Highly Customizable** – Extendable APIs for tailored proxy solutions
 
-📊 **Infographic Overview:**
-
-![Bongonet Overview](https://raw.githubusercontent.com/your-repo/assets/bongonet-infographic.png)
-
 ---
 
 ## 🚀 Getting Started
@@ -107,5 +103,5 @@ Bongonet is licensed under the **[Apache License 2.0](./LICENSE)**.
 
 💡 **Stay connected:** Follow updates, report issues, and contribute to making Bongonet even better!
 
-📢 **Join Our Community:** [![Discord](https://img.shields.io/discord/your-discord-id?label=Join%20Discord&logo=discord&color=7289da)](https://discord.gg/your-link) [![Twitter](https://img.shields.io/twitter/follow/your-twitter-handle?style=social)](https://twitter.com/your-handle)
+📢 **Join Our Community:** [![Discord](https://img.shields.io/discord/your-discord-id?label=Join%20Discord&logo=discord&color=7289da)](https://discord.gg/khulnasoft) [![Twitter](https://img.shields.io/twitter/follow/your-twitter-handle?style=social)](https://twitter.com/khulnasoft)
 
