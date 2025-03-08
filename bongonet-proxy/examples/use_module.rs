@@ -23,7 +23,7 @@ use bongonet_core::Result;
 use bongonet_http::RequestHeader;
 use bongonet_proxy::{ProxyHttp, Session};
 
-/// This example shows how to build and import 3rd party modules
+// This example shows how to build and import 3rd party modules
 
 /// A simple ACL to check "Authorization: basic $credential" header
 mod my_acl {

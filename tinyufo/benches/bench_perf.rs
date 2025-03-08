@@ -96,7 +96,7 @@ fn main() {
 
     // single thread
     let mut rng = thread_rng();
-    let zipf = zipf::ZipfDistribution::new(ITEMS, 1.03).unwrap();
+    let zipf = Zipf::new(ITEMS as f64, 1.03).unwrap();
 
     let before = Instant::now();
     for _ in 0..ITERATIONS {

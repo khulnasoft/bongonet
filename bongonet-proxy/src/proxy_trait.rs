@@ -231,7 +231,6 @@ pub trait ProxyHttp {
     /// The default implementation can handle a single-range as per [RFC7232].
     ///
 
-
     /// [RFC7232]: https://www.rfc-editor.org/rfc/rfc7232
     fn range_header_filter(
         &self,
@@ -448,7 +447,7 @@ pub trait ProxyHttp {
         // it is disconnected
         // or doing so is explicitly permitted by the client or origin server
         // (e.g. headers or an out-of-band contract)
-        error.map_or(false, |e| e.esource() == &ErrorSource::Upstream)
+        error.is_some_and(|e| e.esource() == &ErrorSource::Upstream)
     }
 
     /// This filter is called when the request just established or reused a connection to the upstream
