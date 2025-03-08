@@ -1,71 +1,107 @@
-# Bongonet
+# Bongonet 
 
-## Feature highlights
-* Async Rust: fast and reliable
-* HTTP 1/2 end to end proxy
-* TLS over OpenSSL, BoringSSL or rustls(experimental).
-* gRPC and websocket proxying
-* Graceful reload
-* Customizable load balancing and failover strategies
-* Support for a variety of observability tools
+🚀 **High-performance, memory-safe proxy framework in Rust**
 
-## Reasons to use Bongonet
-* **Security** is your top priority: Bongonet is a more memory safe alternative for services that are written in C/C++
-* Your service is **performance-sensitive**: Bongonet is fast and efficient
-* Your service requires extensive **customization**: The APIs Bongonet proxy framework provides are highly programmable
+---
 
-# Getting started
+## ✨ Feature Highlights
 
-See our [quick starting guide](./docs/quick_start.md) to see how easy it is to build a load balancer.
+![Features](https://img.shields.io/badge/High--Performance-%E2%9C%85-blue) ![Security](https://img.shields.io/badge/Secure-%E2%9C%85-green) ![Observability](https://img.shields.io/badge/Observability-%E2%9C%85-purple)
 
-Our [user guide](./docs/user_guide/index.md) covers more topics such as how to configure and run Bongonet servers, as well as how to build custom HTTP servers and proxy logic on top of Bongonet's framework.
+✅ **Async Rust** – Fast and reliable
 
-API docs are also available for all the crates.
+✅ **Full HTTP 1/2 Proxy** – End-to-end proxying support
 
-# Notable crates in this workspace
-* Bongonet: the "public facing" crate to build networked systems and proxies
-* Bongonet-core: this crate defines the protocols, functionalities and basic traits
-* Bongonet-proxy: the logic and APIs to build HTTP proxies
-* Bongonet-error: the common error type used across Bongonet crates
-* Bongonet-http: the HTTP header definitions and APIs
-* Bongonet-openssl & bongonet-boringssl: SSL related extensions and APIs
-* Bongonet-ketama: the [Ketama](https://github.com/RJ/ketama) consistent algorithm
-* Bongonet-limits: efficient counting algorithms
-* Bongonet-load-balancing: load balancing algorithm extensions for bongonet-proxy
-* Bongonet-memory-cache: Async in-memory caching with cache lock to prevent cache stampede
-* Bongonet-timeout: A more efficient async timer system
-* TinyUfo: The caching algorithm behind bongonet-memory-cache
+✅ **Secure TLS** – Supports OpenSSL, BoringSSL, and experimental Rustls
 
-# System requirements
+✅ **gRPC & WebSocket** – Seamless proxying for modern applications
 
-## Systems
-Linux is our tier 1 environment and main focus.
+✅ **Graceful Reload** – No downtime on config updates
 
-We will try our best for most code to compile for Unix environments. This is for developers and users to have an easier time developing with Bongonet in Unix-like environments like macOS (though some features might be missing)
+✅ **Custom Load Balancing & Failover** – Flexible traffic management
 
-Windows support is preliminary by community's best effort only.
+✅ **Comprehensive Observability** – Works with various monitoring tools
 
-Both x86_64 and aarch64 architectures will be supported.
+---
 
-## Rust version
+## 🎯 Why Choose Bongonet?
 
-Bongonet keeps a rolling MSRV (minimum supported Rust version) policy of 6 months. This means we will accept PRs that upgrade the MSRV as long as the new Rust version used is at least 6 months old.
+🛡️ **Security First** – A safer alternative to C/C++-based proxies
 
-Our current MSRV is 1.72.
+⚡ **Blazing Fast** – Optimized for performance-sensitive applications
 
-## Build Requirements
+🛠 **Highly Customizable** – Extendable APIs for tailored proxy solutions
 
-Some of the crates in this repository have dependencies on additional tools and
-libraries that must be satisfied in order to build them:
+---
 
-* Make sure that [Clang] is installed on your system (for boringssl)
-* Make sure that [Perl 5] is installed on your system (for openssl)
+## 🚀 Getting Started
 
-[Clang]:https://clang.llvm.org/
-[Perl 5]:https://www.perl.org/
+🔹 Read our [Quick Start Guide](./docs/quick_start.md) to set up a load balancer in minutes.
 
-# Contributing
-Please see our [contribution guidelines](./.github/CONTRIBUTING.md).
+🔹 Check out the [User Guide](./docs/user_guide/index.md) for detailed configuration and advanced usage.
 
-# License
-This project is Licensed under [Apache License, Version 2.0](./LICENSE).
+🔹 Explore our **API documentation** for all Bongonet crates.
+
+---
+
+## 📦 Notable Crates in This Workspace
+
+| Crate | Version | Description | Crates.io |
+|--------|---------|-------------|-----------|
+| **Bongonet** | 1.0.0 | The core public crate for building networked systems and proxies | [📦](https://crates.io/crates/bongonet) |
+| **Bongonet-core** | 1.0.0 | Defines protocols, functionalities, and fundamental traits | [📦](https://crates.io/crates/bongonet-core) |
+| **Bongonet-proxy** | 1.0.0 | APIs and logic for building HTTP proxies | [📦](https://crates.io/crates/bongonet-proxy) |
+| **Bongonet-error** | 1.0.0 | Common error types shared across Bongonet crates | [📦](https://crates.io/crates/bongonet-error) |
+| **Bongonet-http** | 1.0.0 | HTTP header definitions and APIs | [📦](https://crates.io/crates/bongonet-http) |
+| **Bongonet-openssl** | 1.0.0 | SSL-related extensions and APIs | [📦](https://crates.io/crates/bongonet-openssl) |
+| **Bongonet-boringssl** | 1.0.0 | SSL-related extensions and APIs | [📦](https://crates.io/crates/bongonet-boringssl) |
+| **Bongonet-ketama** | 1.0.0 | Consistent hashing using [Ketama](https://github.com/RJ/ketama) | [📦](https://crates.io/crates/bongonet-ketama) |
+| **Bongonet-limits** | 1.0.0 | Efficient counting algorithms | [📦](https://crates.io/crates/bongonet-limits) |
+| **Bongonet-load-balancing** | 1.0.0 | Load balancing algorithm extensions for Bongonet-proxy | [📦](https://crates.io/crates/bongonet-load-balancing) |
+| **Bongonet-memory-cache** | 1.0.0 | Async in-memory caching with cache lock prevention | [📦](https://crates.io/crates/bongonet-memory-cache) |
+| **Bongonet-timeout** | 1.0.0 | High-performance async timer system | [📦](https://crates.io/crates/bongonet-timeout) |
+| **TinyUfo** | 1.0.0 | Caching algorithm powering Bongonet-memory-cache | [📦](https://crates.io/crates/tinyufo) |
+
+---
+
+## 🖥️ System Requirements
+
+### 🏗️ Supported Platforms
+✅ **Linux** (Tier 1 support, primary development focus)
+
+✅ **Unix-like operating systems** (macOS support with some limitations)
+
+✅ **Windows** (Community-supported, experimental)
+
+✅ **Architectures** – Supports **x86_64** & **aarch64**
+
+### 🔧 Rust Version
+
+Bongonet follows a **rolling MSRV policy** (Minimum Supported Rust Version) of **6 months**.
+
+✅ **Current MSRV:** Rust **1.72**
+
+### ⚙️ Build Dependencies
+
+🔹 **[Clang](https://clang.llvm.org/)** – Required for BoringSSL
+
+🔹 **[Perl 5](https://www.perl.org/)** – Required for OpenSSL
+
+---
+
+## 🤝 Contributing
+
+We ❤️ contributions! See our [Contribution Guidelines](./.github/CONTRIBUTING.md) for more info.
+
+---
+
+## 📜 License
+
+Bongonet is licensed under the **[Apache License 2.0](./LICENSE)**.
+
+---
+
+💡 **Stay connected:** Follow updates, report issues, and contribute to making Bongonet even better!
+
+📢 **Join Our Community:** [![Twitter](https://img.shields.io/twitter/follow/khulnasoft?style=social)](https://twitter.com/khulnasoft)
+

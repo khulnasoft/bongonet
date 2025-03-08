@@ -1,4 +1,4 @@
-FROM debian:latest as builder
+FROM debian:latest AS builder
 
 ARG BUILDARCH
 RUN apt-get -qq update \
