@@ -113,11 +113,13 @@ impl ZstdCompression {
         match &self {
             ZstdCompression::Default(c, level) => c
                 .compress(data, *level)
-                .map_err(|e| into_error(e, "decompress header")),
+                .map_err(|e| into_error(e, "compress header")),
             ZstdCompression::WithDict(c) => c
                 .compress(data)
-                .map_err(|e| into_error(e, "decompress header")),
+                .map_err(|e| into_error(e, "compress header")),
         }
+    }
+}
     }
 
     fn decompress_to_buffer(&self, source: &[u8], destination: &mut Vec<u8>) -> Result<usize> {
