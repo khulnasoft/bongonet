@@ -73,7 +73,7 @@
 ### 🏗️ Supported Platforms
 ✅ **Linux** (Tier 1 support, primary development focus)
 
-✅ **Unix-like OS** (macOS support with some limitations)
+✅ **Unix-like operating systems** (macOS support with some limitations)
 
 ✅ **Windows** (Community-supported, experimental)
 
