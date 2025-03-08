@@ -103,5 +103,5 @@ Bongonet is licensed under the **[Apache License 2.0](./LICENSE)**.
 
 💡 **Stay connected:** Follow updates, report issues, and contribute to making Bongonet even better!
 
-📢 **Join Our Community:** [![Discord](https://img.shields.io/discord/your-discord-id?label=Join%20Discord&logo=discord&color=7289da)](https://discord.gg/khulnasoft) [![Twitter](https://img.shields.io/twitter/follow/your-twitter-handle?style=social)](https://twitter.com/khulnasoft)
+📢 **Join Our Community:** [![Twitter](https://img.shields.io/twitter/follow/khulnasoft?style=social)](https://twitter.com/khulnasoft)
 
