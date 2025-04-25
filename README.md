@@ -1,71 +1,100 @@
-# Bongonet
+<h1 align="center">🚀 Bongonet</h1>
 
-## Feature highlights
-* Async Rust: fast and reliable
-* HTTP 1/2 end to end proxy
-* TLS over OpenSSL, BoringSSL or rustls(experimental).
-* gRPC and websocket proxying
-* Graceful reload
-* Customizable load balancing and failover strategies
-* Support for a variety of observability tools
+<p align="center">
+  <strong>Async Rust networking stack for blazing-fast, secure, and programmable proxying</strong>
+</p>
 
-## Reasons to use Bongonet
-* **Security** is your top priority: Bongonet is a more memory safe alternative for services that are written in C/C++
-* Your service is **performance-sensitive**: Bongonet is fast and efficient
-* Your service requires extensive **customization**: The APIs Bongonet proxy framework provides are highly programmable
+<p align="center">
+  <a href="https://crates.io/crates/bongonet">
+    <img src="https://img.shields.io/crates/v/bongonet.svg" alt="Crates.io version" />
+  </a>
+  <a href="https://github.com/your-org/bongonet/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0" />
+  </a>
+  <img src="https://img.shields.io/badge/rustc-1.72+-orange.svg" alt="Rustc Version 1.72+" />
+</p>
 
-# Getting started
+---
 
-See our [quick starting guide](./docs/quick_start.md) to see how easy it is to build a load balancer.
+## ✨ Feature Highlights
 
-Our [user guide](./docs/user_guide/index.md) covers more topics such as how to configure and run Bongonet servers, as well as how to build custom HTTP servers and proxy logic on top of Bongonet's framework.
+- ⚡ **Async Rust**: Fast and reliable
+- 🌐 **HTTP/1 & HTTP/2** end-to-end proxy
+- 🔐 **TLS** over OpenSSL, BoringSSL or rustls (experimental)
+- 🔄 **gRPC and WebSocket** proxying
+- ♻️ **Graceful reload**
+- 🎯 **Customizable load balancing** and failover strategies
+- 📊 **Observability** support: metrics, tracing, and more
 
-API docs are also available for all the crates.
+---
 
-# Notable crates in this workspace
-* Bongonet: the "public facing" crate to build networked systems and proxies
-* Bongonet-core: this crate defines the protocols, functionalities and basic traits
-* Bongonet-proxy: the logic and APIs to build HTTP proxies
-* Bongonet-error: the common error type used across Bongonet crates
-* Bongonet-http: the HTTP header definitions and APIs
-* Bongonet-openssl & bongonet-boringssl: SSL related extensions and APIs
-* Bongonet-ketama: the [Ketama](https://github.com/RJ/ketama) consistent algorithm
-* Bongonet-limits: efficient counting algorithms
-* Bongonet-load-balancing: load balancing algorithm extensions for bongonet-proxy
-* Bongonet-memory-cache: Async in-memory caching with cache lock to prevent cache stampede
-* Bongonet-timeout: A more efficient async timer system
-* TinyUfo: The caching algorithm behind bongonet-memory-cache
+## 🛡️ Reasons to Use Bongonet
 
-# System requirements
+- ✅ **Security-first**: Memory-safe Rust vs legacy C/C++ codebases
+- 🚀 **High performance**: Optimized for low latency and high throughput
+- 🔧 **Highly customizable**: Extensible APIs for tailor-made proxy logic
 
-## Systems
-Linux is our tier 1 environment and main focus.
+---
 
-We will try our best for most code to compile for Unix environments. This is for developers and users to have an easier time developing with Bongonet in Unix-like environments like macOS (though some features might be missing)
+## 🚀 Getting Started
 
-Windows support is preliminary by community's best effort only.
+Start fast with our [Quick Start Guide](./docs/quick_start.md).
 
-Both x86_64 and aarch64 architectures will be supported.
+Explore more in the [User Guide](./docs/user_guide/index.md) — from running Bongonet servers to building custom proxy logic.
 
-## Rust version
+📚 **API Documentation** is available for all crates in the workspace.
 
-Bongonet keeps a rolling MSRV (minimum supported Rust version) policy of 6 months. This means we will accept PRs that upgrade the MSRV as long as the new Rust version used is at least 6 months old.
+---
 
-Our current MSRV is 1.72.
+## 📦 Notable Crates
 
-## Build Requirements
+- `bongonet`: Public-facing crate for proxy/networked systems
+- `bongonet-core`: Defines protocols, traits, and core functionalities
+- `bongonet-proxy`: Logic and APIs for building HTTP proxies
+- `bongonet-error`: Shared error types across crates
+- `bongonet-http`: HTTP header types and utilities
+- `bongonet-openssl` / `bongonet-boringssl`: SSL integrations
+- `bongonet-ketama`: [Ketama](https://github.com/RJ/ketama) consistent hashing
+- `bongonet-limits`: Efficient rate-limiting algorithms
+- `bongonet-load-balancing`: Load balancing extensions
+- `bongonet-memory-cache`: Async memory caching with cache-lock
+- `bongonet-timeout`: Efficient async timers
+- `tinyufo`: Underlying caching logic behind `bongonet-memory-cache`
 
-Some of the crates in this repository have dependencies on additional tools and
-libraries that must be satisfied in order to build them:
+---
 
-* Make sure that [Clang] is installed on your system (for boringssl)
-* Make sure that [Perl 5] is installed on your system (for openssl)
+## 🧰 System Requirements
 
-[Clang]:https://clang.llvm.org/
-[Perl 5]:https://www.perl.org/
+### 🖥️ Supported Platforms
 
-# Contributing
-Please see our [contribution guidelines](./.github/CONTRIBUTING.md).
+- ✅ **Linux** (Tier 1)
+- 💻 **macOS** (Partial support)
+- 🪟 **Windows** (Best-effort by community)
+- Supported Architectures: `x86_64`, `aarch64`
 
-# License
-This project is Licensed under [Apache License, Version 2.0](./LICENSE).
+### 🦀 Rust Version
+
+- MSRV: **1.72**
+- Rolling 6-month MSRV policy — upgrades allowed if Rust version is ≥ 6 months old
+
+### 🛠️ Build Requirements
+
+Some crates depend on external tools:
+
+- 🔧 [Clang](https://clang.llvm.org/) (for BoringSSL)
+- 🐪 [Perl 5](https://www.perl.org/) (for OpenSSL)
+
+---
+
+## 🤝 Contributing
+
+Check out our [Contribution Guidelines](./.github/CONTRIBUTING.md) to get involved.
+
+---
+
+## ⚖️ License
+
+Licensed under the [Apache License, Version 2.0](./LICENSE).
+
+---
+
