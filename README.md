@@ -48,31 +48,34 @@ Explore more in the [User Guide](./docs/user_guide/index.md) — from running Bo
 
 ## 📦 Notable Crates
 
-## Packages
+---
 
 ## Packages
 
-| Package                    | Description                                               | Version                                                                                                                                      | Docs                                                                                                       |
-| :------------------------- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
-| `bongonet`                 | Public-facing crate for proxy/networked systems           | [![crates.io](https://img.shields.io/crates/v/bongonet?color=blue)](https://crates.io/crates/bongonet)                                     | [![docs.rs](https://docs.rs/bongonet/badge.svg)](https://docs.rs/bongonet)                                |
-| `bongonet-boringssl`       | SSL integration using BoringSSL                           | [![crates.io](https://img.shields.io/crates/v/bongonet-boringssl?color=blue)](https://crates.io/crates/bongonet-boringssl)                 | [![docs.rs](https://docs.rs/bongonet-boringssl/badge.svg)](https://docs.rs/bongonet-boringssl)            |
-| `bongonet-cache`           | Generic cache structures (see also `bongonet-memory-cache`) | [![crates.io](https://img.shields.io/crates/v/bongonet-cache?color=blue)](https://crates.io/crates/bongonet-cache)                         | [![docs.rs](https://docs.rs/bongonet-cache/badge.svg)](https://docs.rs/bongonet-cache)                    |
-| `bongonet-core`            | Protocols, traits, and core logic                         | [![crates.io](https://img.shields.io/crates/v/bongonet-core?color=blue)](https://crates.io/crates/bongonet-core)                           | [![docs.rs](https://docs.rs/bongonet-core/badge.svg)](https://docs.rs/bongonet-core)                      |
-| `bongonet-error`           | Shared error types across crates                          | [![crates.io](https://img.shields.io/crates/v/bongonet-error?color=blue)](https://crates.io/crates/bongonet-error)                         | [![docs.rs](https://docs.rs/bongonet-error/badge.svg)](https://docs.rs/bongonet-error)                    |
-| `bongonet-header-serde`    | Header serialization/deserialization utilities            | [![crates.io](https://img.shields.io/crates/v/bongonet-header-serde?color=blue)](https://crates.io/crates/bongonet-header-serde)           | [![docs.rs](https://docs.rs/bongonet-header-serde/badge.svg)](https://docs.rs/bongonet-header-serde)      |
-| `bongonet-http`            | HTTP headers and utilities                                | [![crates.io](https://img.shields.io/crates/v/bongonet-http?color=blue)](https://crates.io/crates/bongonet-http)                           | [![docs.rs](https://docs.rs/bongonet-http/badge.svg)](https://docs.rs/bongonet-http)                      |
-| `bongonet-ketama`          | Ketama consistent hashing                                 | [![crates.io](https://img.shields.io/crates/v/bongonet-ketama?color=blue)](https://crates.io/crates/bongonet-ketama)                       | [![docs.rs](https://docs.rs/bongonet-ketama/badge.svg)](https://docs.rs/bongonet-ketama)                  |
-| `bongonet-limits`          | Rate-limiting algorithms                                  | [![crates.io](https://img.shields.io/crates/v/bongonet-limits?color=blue)](https://crates.io/crates/bongonet-limits)                       | [![docs.rs](https://docs.rs/bongonet-limits/badge.svg)](https://docs.rs/bongonet-limits)                  |
-| `bongonet-load-balancing`  | Load balancing extensions                                 | [![crates.io](https://img.shields.io/crates/v/bongonet-load-balancing?color=blue)](https://crates.io/crates/bongonet-load-balancing)       | [![docs.rs](https://docs.rs/bongonet-load-balancing/badge.svg)](https://docs.rs/bongonet-load-balancing)  |
-| `bongonet-lru`             | LRU cache strategies for async systems                    | [![crates.io](https://img.shields.io/crates/v/bongonet-lru?color=blue)](https://crates.io/crates/bongonet-lru)                             | [![docs.rs](https://docs.rs/bongonet-lru/badge.svg)](https://docs.rs/bongonet-lru)                        |
-| `bongonet-memory-cache`    | Async memory cache with locking                           | [![crates.io](https://img.shields.io/crates/v/bongonet-memory-cache?color=blue)](https://crates.io/crates/bongonet-memory-cache)           | [![docs.rs](https://docs.rs/bongonet-memory-cache/badge.svg)](https://docs.rs/bongonet-memory-cache)      |
-| `bongonet-openssl`         | SSL integration using OpenSSL                             | [![crates.io](https://img.shields.io/crates/v/bongonet-openssl?color=blue)](https://crates.io/crates/bongonet-openssl)                     | [![docs.rs](https://docs.rs/bongonet-openssl/badge.svg)](https://docs.rs/bongonet-openssl)                |
-| `bongonet-pool`            | Async connection pool utilities                           | [![crates.io](https://img.shields.io/crates/v/bongonet-pool?color=blue)](https://crates.io/crates/bongonet-pool)                           | [![docs.rs](https://docs.rs/bongonet-pool/badge.svg)](https://docs.rs/bongonet-pool)                      |
-| `bongonet-proxy`           | HTTP proxy logic and APIs                                 | [![crates.io](https://img.shields.io/crates/v/bongonet-proxy?color=blue)](https://crates.io/crates/bongonet-proxy)                         | [![docs.rs](https://docs.rs/bongonet-proxy/badge.svg)](https://docs.rs/bongonet-proxy)                    |
-| `bongonet-runtime`         | Runtime integration for network workloads                 | [![crates.io](https://img.shields.io/crates/v/bongonet-runtime?color=blue)](https://crates.io/crates/bongonet-runtime)                     | [![docs.rs](https://docs.rs/bongonet-runtime/badge.svg)](https://docs.rs/bongonet-runtime)                |
-| `bongonet-rustls`          | TLS integration using Rustls                              | [![crates.io](https://img.shields.io/crates/v/bongonet-rustls?color=blue)](https://crates.io/crates/bongonet-rustls)                       | [![docs.rs](https://docs.rs/bongonet-rustls/badge.svg)](https://docs.rs/bongonet-rustls)                  |
-| `bongonet-timeout`         | Efficient async timer utilities                           | [![crates.io](https://img.shields.io/crates/v/bongonet-timeout?color=blue)](https://crates.io/crates/bongonet-timeout)                     | [![docs.rs](https://docs.rs/bongonet-timeout/badge.svg)](https://docs.rs/bongonet-timeout)                |
+| Package                   | Description                                                 | Version | Release date | Docs                                   | Command |   |
+| ------------------------- | ----------------------------------------------------------- | ------- | ------------ | -------------------------------------- | ------- | - |
+| `bongonet`                | Public-facing crate for proxy/networked systems             |         | –            | [Docs](https://docs.rs/bongonet)       | `cargo add bongonet` 📋                |
+| `bongonet-boringssl`      | SSL integration using BoringSSL                             |         | –            | [Docs](https://docs.rs/bongonet-boringssl) | `cargo add bongonet-boringssl` 📋      |
+| `bongonet-cache`          | Generic cache structures (see also `bongonet-memory-cache`) |         | –            | [Docs](https://docs.rs/bongonet-cache) | `cargo add bongonet-cache` 📋          |
+| `bongonet-core`           | Protocols, traits, and core logic                           |         | –            | [Docs](https://docs.rs/bongonet-core)  | `cargo add bongonet-core` 📋           |
+| `bongonet-error`          | Shared error types across crates                            |         | –            | [Docs](https://docs.rs/bongonet-error) | `cargo add bongonet-error` 📋          |
+| `bongonet-header-serde`   | Header serialization/deserialization utilities              |         | –            | [Docs](https://docs.rs/bongonet-header-serde) | `cargo add bongonet-header-serde` 📋   |
+| `bongonet-http`           | HTTP headers and utilities                                  |         | –            | [Docs](https://docs.rs/bongonet-http)  | `cargo add bongonet-http` 📋           |
+| `bongonet-ketama`         | Ketama consistent hashing                                   |         | –            | [Docs](https://docs.rs/bongonet-ketama) | `cargo add bongonet-ketama` 📋         |
+| `bongonet-limits`         | Rate-limiting algorithms                                    |         | –            | [Docs](https://docs.rs/bongonet-limits) | `cargo add bongonet-limits` 📋         |
+| `bongonet-load-balancing` | Load balancing extensions                                   |         | –            | [Docs](https://docs.rs/bongonet-load-balancing) | `cargo add bongonet-load-balancing` 📋 |
+| `bongonet-lru`            | LRU cache strategies for async systems                      |         | –            | [Docs](https://docs.rs/bongonet-lru)   | `cargo add bongonet-lru` 📋            |
+| `bongonet-memory-cache`   | Async memory cache with locking                             |         | –            | [Docs](https://docs.rs/bongonet-memory-cache) | `cargo add bongonet-memory-cache` 📋   |
+| `bongonet-openssl`        | SSL integration using OpenSSL                               |         | –            | [Docs](https://docs.rs/bongonet-openssl) | `cargo add bongonet-openssl` 📋        |
+| `bongonet-pool`           | Async connection pool utilities                             |         | –            | [Docs](https://docs.rs/bongonet-pool)  | `cargo add bongonet-pool` 📋           |
+| `bongonet-proxy`          | HTTP proxy logic and APIs                                   |         | –            | [Docs](https://docs.rs/bongonet-proxy) | `cargo add bongonet-proxy` 📋          |
+| `bongonet-runtime`        | Runtime integration for network workloads                   |         | –            | [Docs](https://docs.rs/bongonet-runtime) | `cargo add bongonet-runtime` 📋        |
+| `bongonet-rustls`         | TLS integration using Rustls                                |         | –            | [Docs](https://docs.rs/bongonet-rustls) | `cargo add bongonet-rustls` 📋         |
+| `bongonet-timeout`        | Efficient async timer utilities                             |         | –            | [Docs](https://docs.rs/bongonet-timeout) | `cargo add bongonet-timeout` 📋        |
 
+---
+
+Let me know if you'd like to add any more details or modify anything!
 
 
 ## 🧰 System Requirements
