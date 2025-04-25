@@ -126,6 +126,7 @@ Here is the updated table with emojis added for visual flair:
 
 Let me know if you'd like to add any more details or modify anything!
 
+---
 
 ## 🧰 System Requirements
 
