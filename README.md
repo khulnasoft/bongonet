@@ -50,11 +50,13 @@ Explore more in the [User Guide](./docs/user_guide/index.md) — from running Bo
 
 ## Packages
 
+## Packages
+
 | Package                    | Description                                               | Version                                                                                                                                      | Docs                                                                                                       |
 | :------------------------- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
 | `bongonet`                 | Public-facing crate for proxy/networked systems           | [![crates.io](https://img.shields.io/crates/v/bongonet?color=blue)](https://crates.io/crates/bongonet)                                     | [![docs.rs](https://docs.rs/bongonet/badge.svg)](https://docs.rs/bongonet)                                |
 | `bongonet-boringssl`       | SSL integration using BoringSSL                           | [![crates.io](https://img.shields.io/crates/v/bongonet-boringssl?color=blue)](https://crates.io/crates/bongonet-boringssl)                 | [![docs.rs](https://docs.rs/bongonet-boringssl/badge.svg)](https://docs.rs/bongonet-boringssl)            |
-| `bongonet-cache`           | Generic cache structures (WIP or alias of memory-cache?)  | [![crates.io](https://img.shields.io/crates/v/bongonet-cache?color=blue)](https://crates.io/crates/bongonet-cache)                         | [![docs.rs](https://docs.rs/bongonet-cache/badge.svg)](https://docs.rs/bongonet-cache)                    |
+| `bongonet-cache`           | Generic cache structures (see also `bongonet-memory-cache`) | [![crates.io](https://img.shields.io/crates/v/bongonet-cache?color=blue)](https://crates.io/crates/bongonet-cache)                         | [![docs.rs](https://docs.rs/bongonet-cache/badge.svg)](https://docs.rs/bongonet-cache)                    |
 | `bongonet-core`            | Protocols, traits, and core logic                         | [![crates.io](https://img.shields.io/crates/v/bongonet-core?color=blue)](https://crates.io/crates/bongonet-core)                           | [![docs.rs](https://docs.rs/bongonet-core/badge.svg)](https://docs.rs/bongonet-core)                      |
 | `bongonet-error`           | Shared error types across crates                          | [![crates.io](https://img.shields.io/crates/v/bongonet-error?color=blue)](https://crates.io/crates/bongonet-error)                         | [![docs.rs](https://docs.rs/bongonet-error/badge.svg)](https://docs.rs/bongonet-error)                    |
 | `bongonet-header-serde`    | Header serialization/deserialization utilities            | [![crates.io](https://img.shields.io/crates/v/bongonet-header-serde?color=blue)](https://crates.io/crates/bongonet-header-serde)           | [![docs.rs](https://docs.rs/bongonet-header-serde/badge.svg)](https://docs.rs/bongonet-header-serde)      |
@@ -72,7 +74,6 @@ Explore more in the [User Guide](./docs/user_guide/index.md) — from running Bo
 | `bongonet-timeout`         | Efficient async timer utilities                           | [![crates.io](https://img.shields.io/crates/v/bongonet-timeout?color=blue)](https://crates.io/crates/bongonet-timeout)                     | [![docs.rs](https://docs.rs/bongonet-timeout/badge.svg)](https://docs.rs/bongonet-timeout)                |
 
 
----
 
 ## 🧰 System Requirements
 
