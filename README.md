@@ -48,68 +48,21 @@ Explore more in the [User Guide](./docs/user_guide/index.md) — from running Bo
 
 ## 📦 Notable Crates
 
-- [`bongonet`](https://crates.io/crates/bongonet)  
-  <img src="https://img.shields.io/crates/v/bongonet.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet.svg" />  
-  Public-facing crate for proxy/networked systems
-
-- [`bongonet-core`](https://crates.io/crates/bongonet-core)  
-  <img src="https://img.shields.io/crates/v/bongonet-core.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-core.svg" />  
-  Defines protocols, traits, and core functionalities
-
-- [`bongonet-proxy`](https://crates.io/crates/bongonet-proxy)  
-  <img src="https://img.shields.io/crates/v/bongonet-proxy.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-proxy.svg" />  
-  Logic and APIs for building HTTP proxies
-
-- [`bongonet-error`](https://crates.io/crates/bongonet-error)  
-  <img src="https://img.shields.io/crates/v/bongonet-error.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-error.svg" />  
-  Shared error types across crates
-
-- [`bongonet-http`](https://crates.io/crates/bongonet-http)  
-  <img src="https://img.shields.io/crates/v/bongonet-http.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-http.svg" />  
-  HTTP header types and utilities
-
-- [`bongonet-openssl`](https://crates.io/crates/bongonet-openssl) / [`bongonet-boringssl`](https://crates.io/crates/bongonet-boringssl)  
-  <img src="https://img.shields.io/crates/v/bongonet-openssl.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-openssl.svg" />  
-  <img src="https://img.shields.io/crates/v/bongonet-boringssl.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-boringssl.svg" />  
-  SSL integrations
-
-- [`bongonet-ketama`](https://crates.io/crates/bongonet-ketama)  
-  <img src="https://img.shields.io/crates/v/bongonet-ketama.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-ketama.svg" />  
-  [Ketama](https://github.com/RJ/ketama) consistent hashing
-
-- [`bongonet-limits`](https://crates.io/crates/bongonet-limits)  
-  <img src="https://img.shields.io/crates/v/bongonet-limits.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-limits.svg" />  
-  Efficient rate-limiting algorithms
-
-- [`bongonet-load-balancing`](https://crates.io/crates/bongonet-load-balancing)  
-  <img src="https://img.shields.io/crates/v/bongonet-load-balancing.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-load-balancing.svg" />  
-  Load balancing extensions
-
-- [`bongonet-memory-cache`](https://crates.io/crates/bongonet-memory-cache)  
-  <img src="https://img.shields.io/crates/v/bongonet-memory-cache.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-memory-cache.svg" />  
-  Async memory caching with cache-lock
-
-- [`bongonet-timeout`](https://crates.io/crates/bongonet-timeout)  
-  <img src="https://img.shields.io/crates/v/bongonet-timeout.svg" />
-  <img src="https://img.shields.io/crates/d/bongonet-timeout.svg" />  
-  Efficient async timers
-
-- [`tinyufo`](https://crates.io/crates/tinyufo)  
-  <img src="https://img.shields.io/crates/v/tinyufo.svg" />
-  <img src="https://img.shields.io/crates/d/tinyufo.svg" />  
-  Underlying caching logic behind `bongonet-memory-cache`
-
+| Package | Description | Version | Downloads | Docs |
+| :------ | :---------- | :------ | :-------- | :--- |
+| [`bongonet`](https://crates.io/crates/bongonet) | Public-facing crate for proxy/networked systems | ![Crates.io](https://img.shields.io/crates/v/bongonet?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet.svg) | [![Docs.rs](https://docs.rs/bongonet/badge.svg)](https://docs.rs/bongonet) |
+| [`bongonet-core`](https://crates.io/crates/bongonet-core) | Defines protocols, traits, and core functionalities | ![Crates.io](https://img.shields.io/crates/v/bongonet-core?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-core.svg) | [![Docs.rs](https://docs.rs/bongonet-core/badge.svg)](https://docs.rs/bongonet-core) |
+| [`bongonet-proxy`](https://crates.io/crates/bongonet-proxy) | Logic and APIs for building HTTP proxies | ![Crates.io](https://img.shields.io/crates/v/bongonet-proxy?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-proxy.svg) | [![Docs.rs](https://docs.rs/bongonet-proxy/badge.svg)](https://docs.rs/bongonet-proxy) |
+| [`bongonet-error`](https://crates.io/crates/bongonet-error) | Shared error types across crates | ![Crates.io](https://img.shields.io/crates/v/bongonet-error?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-error.svg) | [![Docs.rs](https://docs.rs/bongonet-error/badge.svg)](https://docs.rs/bongonet-error) |
+| [`bongonet-http`](https://crates.io/crates/bongonet-http) | HTTP header types and utilities | ![Crates.io](https://img.shields.io/crates/v/bongonet-http?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-http.svg) | [![Docs.rs](https://docs.rs/bongonet-http/badge.svg)](https://docs.rs/bongonet-http) |
+| [`bongonet-openssl`](https://crates.io/crates/bongonet-openssl) | SSL integration with OpenSSL | ![Crates.io](https://img.shields.io/crates/v/bongonet-openssl?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-openssl.svg) | [![Docs.rs](https://docs.rs/bongonet-openssl/badge.svg)](https://docs.rs/bongonet-openssl) |
+| [`bongonet-boringssl`](https://crates.io/crates/bongonet-boringssl) | SSL integration with BoringSSL | ![Crates.io](https://img.shields.io/crates/v/bongonet-boringssl?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-boringssl.svg) | [![Docs.rs](https://docs.rs/bongonet-boringssl/badge.svg)](https://docs.rs/bongonet-boringssl) |
+| [`bongonet-ketama`](https://crates.io/crates/bongonet-ketama) | [Ketama](https://github.com/RJ/ketama) consistent hashing | ![Crates.io](https://img.shields.io/crates/v/bongonet-ketama?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-ketama.svg) | [![Docs.rs](https://docs.rs/bongonet-ketama/badge.svg)](https://docs.rs/bongonet-ketama) |
+| [`bongonet-limits`](https://crates.io/crates/bongonet-limits) | Efficient rate-limiting algorithms | ![Crates.io](https://img.shields.io/crates/v/bongonet-limits?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-limits.svg) | [![Docs.rs](https://docs.rs/bongonet-limits/badge.svg)](https://docs.rs/bongonet-limits) |
+| [`bongonet-load-balancing`](https://crates.io/crates/bongonet-load-balancing) | Load balancing extensions | ![Crates.io](https://img.shields.io/crates/v/bongonet-load-balancing?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-load-balancing.svg) | [![Docs.rs](https://docs.rs/bongonet-load-balancing/badge.svg)](https://docs.rs/bongonet-load-balancing) |
+| [`bongonet-memory-cache`](https://crates.io/crates/bongonet-memory-cache) | Async memory caching with cache-lock | ![Crates.io](https://img.shields.io/crates/v/bongonet-memory-cache?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-memory-cache.svg) | [![Docs.rs](https://docs.rs/bongonet-memory-cache/badge.svg)](https://docs.rs/bongonet-memory-cache) |
+| [`bongonet-timeout`](https://crates.io/crates/bongonet-timeout) | Efficient async timers | ![Crates.io](https://img.shields.io/crates/v/bongonet-timeout?color=blue) | ![Downloads](https://img.shields.io/crates/d/bongonet-timeout.svg) | [![Docs.rs](https://docs.rs/bongonet-timeout/badge.svg)](https://docs.rs/bongonet-timeout) |
+| [`tinyufo`](https://crates.io/crates/tinyufo) | Underlying caching logic behind `bongonet-memory-cache` | ![Crates.io](https://img.shields.io/crates/v/tinyufo?color=blue) | ![Downloads](https://img.shields.io/crates/d/tinyufo.svg) | [![Docs.rs](https://docs.rs/tinyufo/badge.svg)](https://docs.rs/tinyufo) |
 
 ---
 
