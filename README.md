@@ -48,58 +48,6 @@ Explore more in the [User Guide](./docs/user_guide/index.md) — from running Bo
 
 ## 📦 Notable Crates
 
----
-
-<h1 align="center">🚀 Bongonet</h1>
-
-<p align="center">
-  <strong>Async Rust networking stack for blazing-fast, secure, and programmable proxying</strong>
-</p>
-
-<p align="center">
-  <a href="https://crates.io/crates/bongonet">
-    <img src="https://img.shields.io/crates/v/bongonet.svg" alt="Crates.io version" />
-  </a>
-  <a href="https://github.com/your-org/bongonet/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0" />
-  </a>
-  <img src="https://img.shields.io/badge/rustc-1.72+-orange.svg" alt="Rustc Version 1.72+" />
-</p>
-
----
-
-## ✨ Feature Highlights
-
-- ⚡ **Async Rust**: Fast and reliable
-- 🌐 **HTTP/1 & HTTP/2** end-to-end proxy
-- 🔐 **TLS** over OpenSSL, BoringSSL or rustls (experimental)
-- 🔄 **gRPC and WebSocket** proxying
-- ♻️ **Graceful reload**
-- 🎯 **Customizable load balancing** and failover strategies
-- 📊 **Observability** support: metrics, tracing, and more
-
----
-
-## 🛡️ Reasons to Use Bongonet
-
-- ✅ **Security-first**: Memory-safe Rust vs legacy C/C++ codebases
-- 🚀 **High performance**: Optimized for low latency and high throughput
-- 🔧 **Highly customizable**: Extensible APIs for tailor-made proxy logic
-
----
-
-## 🚀 Getting Started
-
-Start fast with our [Quick Start Guide](./docs/quick_start.md).
-
-Explore more in the [User Guide](./docs/user_guide/index.md) — from running Bongonet servers to building custom proxy logic.
-
-📚 **API Documentation** is available for all crates in the workspace.
-
----
-
-## 📦 Notable Crates
-
 Here is the updated table with emojis added for visual flair:
 
 | Package                   | Description                                              | Version                                                                                                                          | Docs                                                                                                             | Command                                                                      |
