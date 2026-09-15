@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@
 use super::*;
 
 use blake2::{Blake2b, Digest};
+use http::Extensions;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 // 16-byte / 128-bit key: large enough to avoid collision
 const KEY_SIZE: usize = 16;
@@ -104,6 +106,9 @@ pub struct CacheKey {
     ///
     /// For example, if the storage backend implements per user quota, this tag can be used.
     pub user_tag: String,
+
+    /// Grab-bag for user-defined extensions. These will not be persisted to disk.
+    pub extensions: Extensions,
 }
 
 impl CacheKey {
@@ -136,6 +141,16 @@ pub struct CompactCacheKey {
     // save 8 bytes for non-variance but waste 8 bytes for variance vs, store flat 16 bytes
     pub variance: Option<Box<HashBinary>>,
     pub user_tag: Box<str>, // the len should be small to keep memory usage bounded
+}
+
+impl Display for CompactCacheKey {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", hex2str(&self.primary))?;
+        if let Some(var) = &self.variance {
+            write!(f, ", variance: {}", hex2str(var.as_ref()))?;
+        }
+        write!(f, ", user_tag: {}", self.user_tag)
+    }
 }
 
 impl CacheHashKey for CompactCacheKey {
@@ -195,6 +210,7 @@ impl CacheKey {
             primary_bin_override: None,
             variance: None,
             user_tag: "".into(),
+            extensions: Extensions::new(),
         }
     }
 
@@ -213,6 +229,7 @@ impl CacheKey {
             primary_bin_override: None,
             variance: None,
             user_tag: user_tag.into(),
+            extensions: Extensions::new(),
         }
     }
 
@@ -267,6 +284,7 @@ mod tests {
             primary_bin_override: None,
             variance: None,
             user_tag: "1".into(),
+            extensions: Extensions::new(),
         };
         let hash = key.primary();
         assert_eq!(hash, "ac10f2aef117729f8dad056b3059eb7e");
@@ -286,6 +304,7 @@ mod tests {
             primary_bin_override: str2hex("27c35e6e9373877f29e562464e46497e"),
             variance: None,
             user_tag: "1".into(),
+            extensions: Extensions::new(),
         };
         let hash = key.primary();
         assert_eq!(hash, "27c35e6e9373877f29e562464e46497e");
@@ -316,6 +335,7 @@ mod tests {
             primary_bin_override: None,
             variance: Some([0u8; 16]),
             user_tag: "1".into(),
+            extensions: Extensions::new(),
         };
         let hash = key.primary();
         assert_eq!(hash, "ac10f2aef117729f8dad056b3059eb7e");
@@ -338,6 +358,7 @@ mod tests {
             primary_bin_override: str2hex("ac10f2aef117729f8dad056b3059eb7e"),
             variance: Some([0u8; 16]),
             user_tag: "1".into(),
+            extensions: Extensions::new(),
         };
         let hash = key.primary();
         assert_eq!(hash, "ac10f2aef117729f8dad056b3059eb7e");

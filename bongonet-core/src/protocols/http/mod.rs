@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ pub const SERVER_NAME: &[u8; 8] = b"Bongonet";
 pub enum HttpTask {
     /// the response header and the boolean end of response flag
     Header(Box<bongonet_http::ResponseHeader>, bool),
-    /// A piece of response header and the end of response boolean flag
+    /// A piece of response body and the end of response boolean flag
     Body(Option<bytes::Bytes>, bool),
     /// HTTP response trailer
     Trailer(Option<Box<http::HeaderMap>>),

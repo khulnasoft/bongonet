@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -367,7 +367,8 @@ use tokio::io::AsyncReadExt;
 /// Test whether a stream is already closed or not reusable (server sent unexpected data)
 fn test_reusable_stream(stream: &mut Stream) -> bool {
     let mut buf = [0; 1];
-    let result = stream.read(&mut buf[..]).now_or_never();
+    // tokio::task::unconstrained because now_or_never may yield None when the future is ready
+     let result = tokio::task::unconstrained(stream.read(&mut buf[..])).now_or_never();
     if let Some(data_result) = result {
         match data_result {
             Ok(n) => {

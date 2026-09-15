@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use http::HeaderValue;
 use http::{header::AsHeaderName, HeaderMap};
-use log::error;
 use std::time::Duration;
 
 /// HTTP server session object for both HTTP/1.x and HTTP/2
@@ -107,6 +106,20 @@ impl Session {
         }
     }
 
+    /// Discard the request body by reading it until completion.
+    ///
+    /// This is useful for making streams reusable (in particular for HTTP/1.1) after returning an
+    /// error before the whole body has been read.
+    pub async fn drain_request_body(&mut self) -> Result<()> {
+        loop {
+            match self.read_request_body().await {
+                Ok(Some(_)) => { /* continue to drain */ }
+                Ok(None) => return Ok(()), // done
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
     /// Write the response header to client
     /// Informational headers (status code 100-199, excluding 101) can be written multiple times the final
     /// response header (status code 200+ or 101) is written.
@@ -144,7 +157,7 @@ impl Session {
                 s.write_body(&data).await?;
                 Ok(())
             }
-            Self::H2(s) => s.write_body(data, end),
+            Self::H2(s) => s.write_body(data, end).await,
         }
     }
 
@@ -176,7 +189,7 @@ impl Session {
     pub async fn response_duplex_vec(&mut self, tasks: Vec<HttpTask>) -> Result<bool> {
         match self {
             Self::H1(s) => s.response_duplex_vec(tasks).await,
-            Self::H2(s) => s.response_duplex_vec(tasks),
+            Self::H2(s) => s.response_duplex_vec(tasks).await,
         }
     }
 
@@ -189,8 +202,19 @@ impl Session {
         }
     }
 
+    /// Sets the downstream read timeout. This will trigger if we're unable
+    /// to read from the stream after `timeout`.
+    ///
+    /// This is a noop for h2.
+    pub fn set_read_timeout(&mut self, timeout: Duration) {
+        match self {
+            Self::H1(s) => s.set_read_timeout(timeout),
+            Self::H2(_) => {}
+        }
+    }
+
     /// Sets the downstream write timeout. This will trigger if we're unable
-    /// to write to the stream after `duration`. If a `min_send_rate` is
+    /// to write to the stream after `timeout`. If a `min_send_rate` is
     /// configured then the `min_send_rate` calculated timeout has higher priority.
     ///
     /// This is a noop for h2.
@@ -294,10 +318,23 @@ impl Session {
         }
     }
 
-    /// Send error response to client
-    pub async fn respond_error(&mut self, error: u16) {
-        let resp = Self::generate_error(error);
+    /// Send error response to client using a pre-generated error message.
+    pub async fn respond_error(&mut self, error: u16) -> Result<()> {
+        self.respond_error_with_body(error, Bytes::default()).await
+    }
 
+    /// Send error response to client using a pre-generated error message and custom body.
+    pub async fn respond_error_with_body(&mut self, error: u16, body: Bytes) -> Result<()> {
+        let mut resp = Self::generate_error(error);
+        if !body.is_empty() {
+            // error responses have a default content-length of zero
+            resp.set_content_length(body.len())?
+        }
+        self.write_error_response(resp, body).await
+    }
+
+    /// Send an error response to a client with a response header and body.
+    pub async fn write_error_response(&mut self, resp: ResponseHeader, body: Bytes) -> Result<()> {
         // TODO: we shouldn't be closing downstream connections on internally generated errors
         // and possibly other upstream connect() errors (connection refused, timeout, etc)
         //
@@ -306,11 +343,23 @@ impl Session {
         // rather than a misleading the client with 'keep-alive'
         self.set_keepalive(None);
 
-        self.write_response_header(Box::new(resp))
-            .await
-            .unwrap_or_else(|e| {
-                error!("failed to send error response to downstream: {e}");
-            });
+        // If a response was already written and it's not informational 1xx, return.
+         // The only exception is an informational 101 Switching Protocols, which is treated
+         // as final response https://www.rfc-editor.org/rfc/rfc9110#section-15.2.2.
+         if let Some(resp_written) = self.response_written().as_ref() {
+            if !resp_written.status.is_informational() || resp_written.status == 101 {
+                return Ok(());
+            }
+        }
+
+        self.write_response_header(Box::new(resp)).await?;
+        if !body.is_empty() {
+            self.write_response_body(body, true).await?;
+        } else {
+            self.finish_body().await?;
+        }
+        
+        Ok(())
     }
 
     /// Whether there is no request body

@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ impl Http2Session {
     }
 
     /// Write a request body chunk
-    pub fn write_request_body(&mut self, data: Bytes, end: bool) -> Result<()> {
+    pub async fn write_request_body(&mut self, data: Bytes, end: bool) -> Result<()> {
         if self.ended {
             warn!("Try to write request body after end of stream, dropping the extra data");
             return Ok(());
@@ -133,7 +133,9 @@ impl Http2Session {
             .as_mut()
             .expect("Try to write request body before sending request header");
 
-        write_body(body_writer, data, end).map_err(|e| self.handle_err(e))?;
+        super::write_body(body_writer, data, end)
+            .await
+            .map_err(|e| self.handle_err(e))?;
         self.ended = self.ended || end;
         Ok(())
     }
@@ -255,7 +257,8 @@ impl Http2Session {
         // https://docs.rs/h2/latest/h2/struct.RecvStream.html#method.is_end_stream
         // So poll the data once to check this condition. If an error is returned, that indicates
         // that the stream closed due to an error e.g. h2 protocol error.
-        match reader.data().now_or_never() {
+        //
+         // tokio::task::unconstrained because now_or_never may yield None when the future is ready
             Some(None) => Ok(true),
             Some(Some(Ok(_))) => Error::e_explain(H2Error, "unexpected data after end stream"),
             Some(Some(Err(e))) => Error::e_because(H2Error, "while checking end stream", e),
@@ -402,15 +405,6 @@ impl Http2Session {
         }
         e
     }
-}
-
-/// A helper function to write the request body
-pub fn write_body(send_body: &mut SendStream<Bytes>, data: Bytes, end: bool) -> Result<()> {
-    let data_len = data.len();
-    send_body.reserve_capacity(data_len);
-    send_body
-        .send_data(data, end)
-        .or_err(WriteError, "while writing h2 request body")
 }
 
 /* helper functions */

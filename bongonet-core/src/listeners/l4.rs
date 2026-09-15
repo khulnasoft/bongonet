@@ -1,4 +1,4 @@
-// Copyright 2024 KhulnaSoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -306,9 +306,13 @@ impl ListenerEndpointBuilder {
 
     #[cfg(windows)]
     pub async fn listen(self) -> Result<ListenerEndpoint> {
+        let listen_addr = self
+            .listen_addr
+            .expect("Tried to listen with no addr specified");
+        let listener = bind(&listen_addr).await?;
         Ok(ListenerEndpoint {
             listen_addr,
-            listener: bind(&listen_addr).await?,
+            listener: Arc::new(listener),
         })
     }
 }
