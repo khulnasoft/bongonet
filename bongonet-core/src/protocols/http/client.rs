@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ impl HttpSession {
                 h1.write_body(&data).await?;
                 Ok(())
             }
-            HttpSession::H2(h2) => h2.write_request_body(data, end),
+            HttpSession::H2(h2) => h2.write_request_body(data, end).await,
         }
     }
 
@@ -161,7 +161,7 @@ impl HttpSession {
         }
     }
 
-    /// Return a mutable [Digest] reference for the connection, see [`digest`] for more details.
+    /// Return a mutable [Digest] reference for the connection.
     ///
     /// Will return `None` if this is an H2 session and multiple streams are open.
     pub fn digest_mut(&mut self) -> Option<&mut Digest> {

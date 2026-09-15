@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ where
             // CacheLockGiveUp: the writer will set OriginNotCache (if applicable)
             // readers don't need to do it
             NeverEnabled | StorageError | InternalError | Deferred | CacheLockGiveUp
-            | CacheLockTimeout => {
+            | CacheLockTimeout | DeclinedToUpstream | UpstreamError => {
                 return None;
             }
             // Skip certain NoCacheReason::Custom according to user

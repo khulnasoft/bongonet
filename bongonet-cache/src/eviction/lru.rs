@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -217,7 +217,7 @@ impl<const N: usize> EvictionManager for Manager<N> {
                 let mut buffer = Vec::with_capacity(8192);
                 file.read_to_end(&mut buffer)
                     .or_err_with(InternalError, || {
-                        err_str_path("fail to write to", &file_path)
+                        err_str_path("fail to read from", &file_path)
                     })?;
                 Ok::<Vec<u8>, BError>(buffer)
             })

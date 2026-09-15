@@ -1,7 +1,7 @@
 [package]
 name = "bongonet-limits"
-version = "0.3.0"
-authors = ["KhulnaSoft DevOps <info@khulnasoft.com>"]
+version = "0.4.0"
+authors = ["Md Sulaiman <dev.sulaiman@icloud.com>"]
 license = "Apache-2.0"
 description = "A library for rate limiting and event frequency estimation"
 edition = "2021"
@@ -18,9 +18,10 @@ path = "src/lib.rs"
 ahash = { workspace = true }
 
 [dev-dependencies]
-rand = "0"
+rand = "0.8"
 dashmap = "5"
 dhat = "0"
+float-cmp = "0.9.0"
 
 [[bench]]
 name = "benchmark"

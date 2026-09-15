@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ unsafe fn gid_for_username(name: &CString) -> Option<libc::gid_t> {
 }
 
 /// Start a server instance as a daemon.
+#[cfg(unix)]
 pub fn daemonize(conf: &ServerConf) {
     // TODO: customize working dir
 

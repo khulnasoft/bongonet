@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ pub(crate) fn titled_header_name_str(header_name: &HeaderName) -> Option<&'stati
         header::TRANSFER_ENCODING => "Transfer-Encoding",
         header::HOST => "Host",
         header::SERVER => "Server",
+        header::SET_COOKIE => "Set-Cookie",
         // TODO: add more const header here to map to their titled case
         // TODO: automatically upper case the first letter?
         _ => {

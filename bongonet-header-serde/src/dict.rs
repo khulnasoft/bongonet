@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,6 +71,23 @@ mod test {
 
         assert!(compressed.len() < uncompressed);
         assert!(compressed.len() < compressed_no_dict.len());
+    }
+
+    #[test]
+    fn test_deserialize_with_dict() {
+        let dict = gen_test_dict();
+        let serde = crate::HeaderSerde::new(Some(dict));
+        let serde_no_dict = crate::HeaderSerde::new(None);
+        let header = gen_test_header();
+
+        let compressed = serde.serialize(&header).unwrap();
+        let compressed_no_dict = serde_no_dict.serialize(&header).unwrap();
+
+        let from_dict_header = serde.deserialize(&compressed).unwrap();
+        let from_no_dict_header = serde_no_dict.deserialize(&compressed_no_dict).unwrap();
+
+        assert_eq!(from_dict_header.status, from_no_dict_header.status);
+        assert_eq!(from_dict_header.headers, from_no_dict_header.headers);
     }
 
     #[test]

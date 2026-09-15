@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ impl<SV> HttpProxy<SV> {
         );
 
         match ret {
-            Ok((_first, _second)) => (true, true, None),
+            Ok((downstream_can_reuse, _upstream)) => (downstream_can_reuse, true, None),
             Err(e) => (false, false, Some(e)),
         }
     }
@@ -116,13 +116,18 @@ impl<SV> HttpProxy<SV> {
         SV: ProxyHttp + Send + Sync,
         SV::CTX: Send + Sync,
     {
+        #[cfg(windows)]
+        let raw = client_session.id() as std::os::windows::io::RawSocket;
+        #[cfg(unix)]
+        let raw = client_session.id();
+
         if let Err(e) = self
             .inner
             .connected_to_upstream(
                 session,
                 reused,
                 peer,
-                client_session.id(),
+                raw,
                 Some(client_session.digest()),
                 ctx,
             )
@@ -199,13 +204,14 @@ impl<SV> HttpProxy<SV> {
     }
 
     // todo use this function to replace bidirection_1to2()
+    // returns whether this server (downstream) session can be reused
     async fn proxy_handle_downstream(
         &self,
         session: &mut Session,
         tx: mpsc::Sender<HttpTask>,
         mut rx: mpsc::Receiver<HttpTask>,
         ctx: &mut SV::CTX,
-    ) -> Result<()>
+    ) -> Result<bool>
     where
         SV: ProxyHttp + Send + Sync,
         SV::CTX: Send + Sync,
@@ -305,7 +311,9 @@ impl<SV> HttpProxy<SV> {
                 },
 
                 _ = tx.reserve(), if downstream_state.is_reading() && send_permit.is_err() => {
-                    debug!("waiting for permit {send_permit:?}");
+                    // If tx is closed, the upstream has already finished its job.
+                    downstream_state.maybe_finished(tx.is_closed());
+                    debug!("waiting for permit {send_permit:?}, upstream closed {}", tx.is_closed());
                     /* No permit, wait on more capacity to avoid starving.
                      * Otherwise this select only blocks on rx, which might send no data
                      * before the entire body is uploaded.
@@ -323,7 +331,8 @@ impl<SV> HttpProxy<SV> {
                         // pull as many tasks as we can
                         let mut tasks = Vec::with_capacity(TASK_BUFFER_SIZE);
                         tasks.push(t);
-                        while let Some(maybe_task) = rx.recv().now_or_never() {
+                        // tokio::task::unconstrained because now_or_never may yield None when the future is ready
+                         while let Some(maybe_task) = tokio::task::unconstrained(rx.recv()).now_or_never() {
                             debug!("upstream event now: {:?}", maybe_task);
                             if let Some(t) = maybe_task {
                                 tasks.push(t);
@@ -374,7 +383,7 @@ impl<SV> HttpProxy<SV> {
                     }
                 },
 
-                task = serve_from_cache.next_http_task(&mut session.cache),
+                task = serve_from_cache.next_http_task(&mut session.cache, &mut range_body_filter),
                     if !response_state.cached_done() && !downstream_state.is_errored() && serve_from_cache.is_on() => {
 
                     let task = self.h1_response_filter(session, task?, ctx,
@@ -411,16 +420,19 @@ impl<SV> HttpProxy<SV> {
             }
         }
 
-        match session.as_mut().finish_body().await {
-            Ok(_) => {
-                debug!("finished sending body to downstream");
-            }
-            Err(e) => {
-                error!("Error finish sending body to downstream: {}", e);
-                // TODO: don't do downstream keepalive
+        let mut reuse_downstream = !downstream_state.is_errored();
+        if reuse_downstream {
+            match session.as_mut().finish_body().await {
+                Ok(_) => {
+                    debug!("finished sending body to downstream");
+                }
+                Err(e) => {
+                    error!("Error finish sending body to downstream: {}", e);
+                    reuse_downstream = false;
+                }
             }
         }
-        Ok(())
+        Ok(reuse_downstream)
     }
 
     async fn h1_response_filter(
@@ -481,10 +493,9 @@ impl<SV> HttpProxy<SV> {
                         ctx,
                     );
                     if !session.ignore_downstream_range {
-                        let range_type = proxy_cache::range_filter::range_header_filter(
-                            session.req_header(),
-                            &mut header,
-                        );
+                        let range_type =
+                            self.inner
+                                .range_header_filter(session.req_header(), &mut header, ctx);
                         range_body_filter.set(range_type);
                     }
                 }

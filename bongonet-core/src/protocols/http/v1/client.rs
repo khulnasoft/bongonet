@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -639,7 +639,7 @@ impl HttpSession {
         &self.digest
     }
 
-    /// Return a mutable [Digest] reference for the connection, see [`digest`] for more details.
+    /// Return a mutable [Digest] reference for the connection.
     pub fn digest_mut(&mut self) -> &mut Digest {
         &mut self.digest
     }
@@ -663,6 +663,13 @@ impl HttpSession {
     /// Get the reference of the [Stream] that this HTTP session is operating upon.
     pub fn stream(&self) -> &Stream {
         &self.underlying_stream
+    }
+
+    /// Consume `self`, the underlying [Stream] will be returned and can be used
+    /// directly, for example, in the case of HTTP upgrade. It is not flushed
+    /// prior to being returned.
+    pub fn into_inner(self) -> Stream {
+        self.underlying_stream
     }
 }
 

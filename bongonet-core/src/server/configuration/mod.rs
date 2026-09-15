@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,9 @@ use clap::Parser;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use std::fs;
+
+// default maximum upstream retries for retry-able proxy errors
+const DEFAULT_MAX_RETRIES: usize = 16;
 
 /// The configuration file
 ///
@@ -67,21 +70,24 @@ pub struct ServerConf {
     /// Timeout in seconds of the final step for the graceful shutdown.
     pub graceful_shutdown_timeout_seconds: Option<u64>,
     // These options don't belong here as they are specific to certain services
-    /// IPv4 addresses for a client connector to bind to. See [`ConnectorOptions`].
+    /// IPv4 addresses for a client connector to bind to. See
+    /// [`ConnectorOptions`](crate::connectors::ConnectorOptions).
     /// Note: this is an _unstable_ field that may be renamed or removed in the future.
     pub client_bind_to_ipv4: Vec<String>,
-    /// IPv6 addresses for a client connector to bind to. See [`ConnectorOptions`].
+    /// IPv6 addresses for a client connector to bind to. See
+    /// [`ConnectorOptions`](crate::connectors::ConnectorOptions).
     /// Note: this is an _unstable_ field that may be renamed or removed in the future.
     pub client_bind_to_ipv6: Vec<String>,
-    /// Keepalive pool size for client connections to upstream. See [`ConnectorOptions`].
+    /// Keepalive pool size for client connections to upstream. See
+    /// [`ConnectorOptions`](crate::connectors::ConnectorOptions).
     /// Note: this is an _unstable_ field that may be renamed or removed in the future.
     pub upstream_keepalive_pool_size: usize,
     /// Number of dedicated thread pools to use for upstream connection establishment.
-    /// See [`ConnectorOptions`].
+    /// See [`ConnectorOptions`](crate::connectors::ConnectorOptions).
     /// Note: this is an _unstable_ field that may be renamed or removed in the future.
     pub upstream_connect_offload_threadpools: Option<usize>,
     /// Number of threads per dedicated upstream connection establishment pool.
-    /// See [`ConnectorOptions`].
+    /// See [`ConnectorOptions`](crate::connectors::ConnectorOptions).
     /// Note: this is an _unstable_ field that may be renamed or removed in the future.
     pub upstream_connect_offload_thread_per_pool: Option<usize>,
     /// When enabled allows TLS keys to be written to a file specified by the SSLKEYLOG
@@ -89,6 +95,11 @@ pub struct ServerConf {
     /// for debugging purposes.
     /// Note: this is an _unstable_ field that may be renamed or removed in the future.
     pub upstream_debug_ssl_keylog: bool,
+    /// The maximum number of retries that will be attempted when an error is
+    /// retry-able (`e.retry() == true`) when proxying to upstream.
+    ///
+    /// This setting is a fail-safe and defaults to 16.
+    pub max_retries: usize,
 }
 
 impl Default for ServerConf {
@@ -112,6 +123,7 @@ impl Default for ServerConf {
             upstream_connect_offload_thread_per_pool: None,
             grace_period_seconds: None,
             graceful_shutdown_timeout_seconds: None,
+            max_retries: DEFAULT_MAX_RETRIES,
         }
     }
 }
@@ -266,6 +278,7 @@ mod tests {
             upstream_connect_offload_thread_per_pool: None,
             grace_period_seconds: None,
             graceful_shutdown_timeout_seconds: None,
+            max_retries: 1,
         };
         // cargo test -- --nocapture not_a_test_i_cannot_write_yaml_by_hand
         println!("{}", conf.to_yaml());
@@ -301,6 +314,7 @@ version: 1
         assert_eq!(0, conf.client_bind_to_ipv4.len());
         assert_eq!(0, conf.client_bind_to_ipv6.len());
         assert_eq!(1, conf.version);
+        assert_eq!(DEFAULT_MAX_RETRIES, conf.max_retries);
         assert_eq!("/tmp/bongonet.pid", conf.pid_file);
     }
 }

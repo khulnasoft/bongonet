@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,12 +36,11 @@
 //!
 //! If looking to build a (reverse) proxy, see [`bongonet-proxy`](https://docs.rs/bongonet-proxy) crate.
 //!
-//! # features
-//! * `openssl`: Using OpenSSL as the internal TLS backend. This feature is default on.
-//! * `boringssl`: Switch the internal TLS library from OpenSSL to BoringSSL. This feature will disable `openssl`.
-//! * `proxy`: This feature will include and export `bongonet_proxy::prelude::*`.
-//! * `lb`: This feature will include and export `bongonet_load_balancing::prelude::*`.
-//! * `cache`: This feature will include and export `bongonet_cache::prelude::*`.
+//! # Feature flags
+#![cfg_attr(
+    feature = "document-features",
+    cfg_attr(doc, doc = ::document_features::document_features!())
+)]
 
 pub use bongonet_core::*;
 

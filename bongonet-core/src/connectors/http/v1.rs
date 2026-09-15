@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(feature = "some_tls")]
+    #[cfg(feature = "any_tls")]
     async fn test_connect_tls() {
         let connector = Connector::new(None);
         let peer = HttpPeer::new(("1.1.1.1", 443), true, "one.one.one.one".into());

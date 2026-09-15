@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@ use super::*;
 use bongonet_cache::key::CacheHashKey;
 use bongonet_cache::lock::LockStatus;
 use bongonet_cache::max_file_size::ERR_RESPONSE_TOO_LARGE;
-use bongonet_cache::{HitStatus, RespCacheable::*};
+use bongonet_cache::{ForcedInvalidationKind, HitStatus, RespCacheable::*};
 use bongonet_core::protocols::http::conditional_filter::to_304;
 use bongonet_core::protocols::http::v1::common::header_value_content_length;
 use bongonet_core::ErrorType;
-use http::StatusCode;
+use http::{Method, StatusCode};
+use range_filter::RangeBodyFilter;
 
 impl<SV> HttpProxy<SV> {
     // return bool: server_session can be reused, and error if any
@@ -79,6 +80,7 @@ impl<SV> HttpProxy<SV> {
             // for cache lock, TODO: cap the max number of loops
             match session.cache.cache_lookup().await {
                 Ok(res) => {
+                    let mut hit_status_opt = None;
                     if let Some((mut meta, handler)) = res {
                         // Vary logic
                         // Because this branch can be called multiple times in a loop, and we only
@@ -112,10 +114,8 @@ impl<SV> HttpProxy<SV> {
                         // hit
                         // TODO: maybe round and/or cache now()
                         let hit_status = if meta.is_fresh(std::time::SystemTime::now()) {
-                            // check if we should force expire
-                            // (this is a soft purge which tries to revalidate,
+                            // check if we should force expire or miss
                             // vs. hard purge which forces miss)
-                            // TODO: allow hard purge
                             match self.inner.cache_hit_filter(session, &meta, ctx).await {
                                 Err(e) => {
                                     error!(
@@ -125,85 +125,26 @@ impl<SV> HttpProxy<SV> {
                                     // this return value will cause us to fetch from upstream
                                     HitStatus::FailedHitFilter
                                 }
-                                Ok(expired) => {
+                                Ok(None) => HitStatus::Fresh,
+                                Ok(Some(ForcedInvalidationKind::ForceExpired)) => {
                                     // force expired asset should not be serve as stale
                                     // because force expire is usually to remove data
-                                    if expired {
-                                        meta.disable_serve_stale();
-                                        HitStatus::ForceExpired
-                                    } else {
-                                        HitStatus::Fresh
-                                    }
+                                    meta.disable_serve_stale();
+                                    HitStatus::ForceExpired
                                 }
+                                Ok(Some(ForcedInvalidationKind::ForceMiss)) => HitStatus::ForceMiss,
                             }
                         } else {
                             HitStatus::Expired
                         };
+
+                        hit_status_opt = Some(hit_status);
+
                         // init cache for hit / stale
                         session.cache.cache_found(meta, handler, hit_status);
+                    }
 
-                        if !hit_status.is_fresh() {
-                            // expired or force expired asset
-                            if session.cache.is_cache_locked() {
-                                // first if this is the sub request for the background cache update
-                                if let Some(write_lock) = session
-                                    .subrequest_ctx
-                                    .as_mut()
-                                    .and_then(|ctx| ctx.write_lock.take())
-                                {
-                                    // Put the write lock in the request
-                                    session.cache.set_write_lock(write_lock);
-                                    // and then let it go to upstream
-                                    break None;
-                                }
-                                let will_serve_stale = session.cache.can_serve_stale_updating()
-                                    && self.inner.should_serve_stale(session, ctx, None);
-                                if !will_serve_stale {
-                                    let lock_status = session.cache.cache_lock_wait().await;
-                                    if self.handle_lock_status(session, ctx, lock_status) {
-                                        continue;
-                                    } else {
-                                        break None;
-                                    }
-                                }
-                                // else continue to serve stale
-                                session.cache.set_stale_updating();
-                            } else if session.cache.is_cache_lock_writer() {
-                                // stale while revalidate logic for the writer
-                                let will_serve_stale = session.cache.can_serve_stale_updating()
-                                    && self.inner.should_serve_stale(session, ctx, None);
-                                if will_serve_stale {
-                                    // create a background thread to do the actual update
-                                    let subrequest =
-                                        Box::new(crate::subrequest::create_dummy_session(session));
-                                    let new_app = self.clone(); // Clone the Arc
-                                    let sub_req_ctx = Box::new(SubReqCtx {
-                                        write_lock: Some(session.cache.take_write_lock()),
-                                    });
-                                    tokio::spawn(async move {
-                                        new_app.process_subrequest(subrequest, sub_req_ctx).await;
-                                    });
-                                    // continue to serve stale for this request
-                                    session.cache.set_stale_updating();
-                                } else {
-                                    // return to fetch from upstream
-                                    break None;
-                                }
-                            } else {
-                                // return to fetch from upstream
-                                break None;
-                            }
-                        }
-                        let (reuse, err) = self.proxy_cache_hit(session, ctx).await;
-                        if let Some(e) = err.as_ref() {
-                            error!(
-                                "Fail to serve cache: {e}, {}",
-                                self.inner.request_summary(session, ctx)
-                            );
-                        }
-                        // responses is served from cache, exit
-                        break Some((reuse, err));
-                    } else {
+                    if hit_status_opt.map_or(true, HitStatus::is_treated_as_miss) {
                         // cache miss
                         if session.cache.is_cache_locked() {
                             // Another request is filling the cache; try waiting til that's done and retry.
@@ -218,6 +159,74 @@ impl<SV> HttpProxy<SV> {
                             break None;
                         }
                     }
+
+                    // Safe because an empty hit status would have broken out
+                    // in the block above
+                    let hit_status = hit_status_opt.expect("None case handled as miss");
+
+                    if !hit_status.is_fresh() {
+                        // expired or force expired asset
+                        if session.cache.is_cache_locked() {
+                            // first if this is the sub request for the background cache update
+                            if let Some(write_lock) = session
+                                .subrequest_ctx
+                                .as_mut()
+                                .and_then(|ctx| ctx.write_lock.take())
+                            {
+                                // Put the write lock in the request
+                                session.cache.set_write_lock(write_lock);
+                                session.cache.tag_as_subrequest();
+                                // and then let it go to upstream
+                                break None;
+                            }
+                            let will_serve_stale = session.cache.can_serve_stale_updating()
+                                && self.inner.should_serve_stale(session, ctx, None);
+                            if !will_serve_stale {
+                                let lock_status = session.cache.cache_lock_wait().await;
+                                if self.handle_lock_status(session, ctx, lock_status) {
+                                    continue;
+                                } else {
+                                    break None;
+                                }
+                            }
+                            // else continue to serve stale
+                            session.cache.set_stale_updating();
+                        } else if session.cache.is_cache_lock_writer() {
+                            // stale while revalidate logic for the writer
+                            let will_serve_stale = session.cache.can_serve_stale_updating()
+                                && self.inner.should_serve_stale(session, ctx, None);
+                            if will_serve_stale {
+                                // create a background thread to do the actual update
+                                let subrequest =
+                                    Box::new(crate::subrequest::create_dummy_session(session));
+                                let new_app = self.clone(); // Clone the Arc
+                                let sub_req_ctx = Box::new(SubReqCtx {
+                                    write_lock: Some(session.cache.take_write_lock()),
+                                });
+                                tokio::spawn(async move {
+                                    new_app.process_subrequest(subrequest, sub_req_ctx).await;
+                                });
+                                // continue to serve stale for this request
+                                session.cache.set_stale_updating();
+                            } else {
+                                // return to fetch from upstream
+                                break None;
+                            }
+                        } else {
+                            // return to fetch from upstream
+                            break None;
+                        }
+                    }
+
+                    let (reuse, err) = self.proxy_cache_hit(session, ctx).await;
+                    if let Some(e) = err.as_ref() {
+                        error!(
+                            "Fail to serve cache: {e}, {}",
+                            self.inner.request_summary(session, ctx)
+                        );
+                    }
+                    // responses is served from cache, exit
+                    break Some((reuse, err));
                 }
                 Err(e) => {
                     // Allow cache miss to fill cache even if cache lookup errors
@@ -271,7 +280,7 @@ impl<SV> HttpProxy<SV> {
 
         // process range header if the cache storage supports seek
         let range_type = if seekable && !session.ignore_downstream_range {
-            range_header_filter(req, &mut header)
+            self.inner.range_header_filter(req, &mut header, ctx)
         } else {
             RangeType::None
         };
@@ -294,7 +303,13 @@ impl<SV> HttpProxy<SV> {
             }
             Err(e) => {
                 // TODO: more logging and error handling
-                session.as_mut().respond_error(500).await;
+                session
+                    .as_mut()
+                    .respond_error(500)
+                    .await
+                    .unwrap_or_else(|e| {
+                        error!("failed to send error response to downstream: {e}");
+                    });
                 // we have not write anything dirty to downstream, it is still reusable
                 return (true, Some(e));
             }
@@ -309,7 +324,23 @@ impl<SV> HttpProxy<SV> {
             }
             loop {
                 match session.cache.hit_handler().read_body().await {
-                    Ok(body) => {
+                    Ok(mut body) => {
+                        let end = body.is_none();
+                        match self
+                            .inner
+                            .response_body_filter(session, &mut body, end, ctx)
+                        {
+                            Ok(Some(duration)) => {
+                                trace!("delaying response for {duration:?}");
+                                time::sleep(duration).await;
+                            }
+                            Ok(None) => { /* continue */ }
+                            Err(e) => {
+                                // body is being sent, don't treat downstream as reusable
+                                return (false, Some(e));
+                            }
+                        }
+
                         if let Some(b) = body {
                             // write to downstream
                             if let Err(e) = session
@@ -425,7 +456,7 @@ impl<SV> HttpProxy<SV> {
                             // the request to fail when the chunked response exceeds the maximum
                             // file size again.
                             if session.cache.max_file_size_bytes().is_some()
-                                && !header.headers.contains_key(header::CONTENT_LENGTH)
+                                && !meta.headers().contains_key(header::CONTENT_LENGTH)
                             {
                                 session.cache.disable(NoCacheReason::ResponseTooLarge);
                                 return Ok(());
@@ -433,14 +464,16 @@ impl<SV> HttpProxy<SV> {
 
                             session.cache.response_became_cacheable();
 
-                            if header.status == StatusCode::OK {
+                            if session.req_header().method == Method::GET
+                                && meta.response_header().status == StatusCode::OK
+                            {
                                 self.inner.cache_miss(session, ctx);
                             } else {
                                 // we've allowed caching on the next request,
                                 // but do not cache _this_ request if bypassed and not 200
                                 // (We didn't run upstream request cache filters to strip range or condition headers,
-                                // so this could be an uncacheable response e.g. 206 or 304.
-                                // Exclude all non-200 for simplicity, may expand allowable codes in the future.)
+                                // so this could be an uncacheable response e.g. 206 or 304 or HEAD.
+                                // Exclude all non-200/GET for simplicity, may expand allowable codes in the future.)
                                 fill_cache = false;
                                 session.cache.disable(NoCacheReason::Deferred);
                             }
@@ -450,7 +483,7 @@ impl<SV> HttpProxy<SV> {
                         // on the cache, validate that the response does not exceed the maximum asset size.
                         if session.cache.enabled() {
                             if let Some(max_file_size) = session.cache.max_file_size_bytes() {
-                                let content_length_hdr = header.headers.get(header::CONTENT_LENGTH);
+                                let content_length_hdr = meta.headers().get(header::CONTENT_LENGTH);
                                 if let Some(content_length) =
                                     header_value_content_length(content_length_hdr)
                                 {
@@ -648,8 +681,18 @@ impl<SV> HttpProxy<SV> {
                         None,
                         None,
                     );
-                    self.inner
+                    if self
+                        .inner
                         .should_serve_stale(session, ctx, Some(&http_status_error))
+                    {
+                        // no more need to keep the write lock
+                        session
+                            .cache
+                            .release_write_lock(NoCacheReason::UpstreamError);
+                        true
+                    } else {
+                        false
+                    }
                 } else {
                     false // not 304, not stale if error status code
                 }
@@ -692,6 +735,11 @@ impl<SV> HttpProxy<SV> {
             error,
             self.inner.request_summary(session, ctx)
         );
+
+        // no more need to hang onto the cache lock
+        session
+            .cache
+            .release_write_lock(NoCacheReason::UpstreamError);
 
         Some(self.proxy_cache_hit(session, ctx).await)
     }
@@ -779,7 +827,7 @@ fn cache_hit_header(cache: &HttpCache) -> Box<ResponseHeader> {
 }
 
 // https://datatracker.ietf.org/doc/html/rfc7233#section-3
-pub(crate) mod range_filter {
+pub mod range_filter {
     use super::*;
     use http::header::*;
     use std::ops::Range;
@@ -919,6 +967,27 @@ pub(crate) mod range_filter {
             return RangeType::None;
         };
 
+        // if-range wants to understand if the Last-Modified / ETag value matches exactly for use
+        // with resumable downloads.
+        // https://datatracker.ietf.org/doc/html/rfc9110#name-if-range
+        // Note that the RFC wants strong validation, and suggests that
+        // "A valid entity-tag can be distinguished from a valid HTTP-date
+        // by examining the first three characters for a DQUOTE,"
+        // but this current etag matching behavior most closely mirrors nginx.
+        if let Some(if_range) = req.headers.get(IF_RANGE) {
+            let ir = if_range.as_bytes();
+            let matches = if ir.len() >= 2 && ir.last() == Some(&b'"') {
+                resp.headers.get(ETAG).is_some_and(|etag| etag == if_range)
+            } else if let Some(last_modified) = resp.headers.get(LAST_MODIFIED) {
+                last_modified == if_range
+            } else {
+                false
+            };
+            if !matches {
+                return RangeType::None;
+            }
+        }
+
         // TODO: we can also check Accept-Range header from resp. Nginx gives uses the option
         // see proxy_force_ranges
 
@@ -998,8 +1067,63 @@ pub(crate) mod range_filter {
         );
     }
 
+    #[test]
+    fn test_if_range() {
+        const DATE: &str = "Fri, 07 Jul 2023 22:03:29 GMT";
+        const ETAG: &str = "\"1234\"";
+
+        fn gen_req() -> RequestHeader {
+            let mut req = RequestHeader::build(http::Method::GET, b"/", Some(1)).unwrap();
+            req.append_header("Range", "bytes=0-1").unwrap();
+            req
+        }
+        fn gen_resp() -> ResponseHeader {
+            let mut resp = ResponseHeader::build(200, Some(1)).unwrap();
+            resp.append_header("Content-Length", "10").unwrap();
+            resp.append_header("Last-Modified", DATE).unwrap();
+            resp.append_header("ETag", ETAG).unwrap();
+            resp
+        }
+
+        // matching Last-Modified date
+        let mut req = gen_req();
+        req.insert_header("If-Range", DATE).unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(
+            RangeType::new_single(0, 2),
+            range_header_filter(&req, &mut resp)
+        );
+
+        // non-matching date
+        let mut req = gen_req();
+        req.insert_header("If-Range", "Fri, 07 Jul 2023 22:03:25 GMT")
+            .unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(RangeType::None, range_header_filter(&req, &mut resp));
+
+        // match ETag
+        let mut req = gen_req();
+        req.insert_header("If-Range", ETAG).unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(
+            RangeType::new_single(0, 2),
+            range_header_filter(&req, &mut resp)
+        );
+
+        // non-matching ETags do not result in range
+        let mut req = gen_req();
+        req.insert_header("If-Range", "\"4567\"").unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(RangeType::None, range_header_filter(&req, &mut resp));
+
+        let mut req = gen_req();
+        req.insert_header("If-Range", "1234").unwrap();
+        let mut resp = gen_resp();
+        assert_eq!(RangeType::None, range_header_filter(&req, &mut resp));
+    }
+
     pub struct RangeBodyFilter {
-        range: RangeType,
+        pub range: RangeType,
         current: usize,
     }
 
@@ -1081,13 +1205,13 @@ pub(crate) mod range_filter {
 // miss/revalidation/error.
 #[derive(Debug)]
 pub(crate) enum ServeFromCache {
-    Off,             // not using cache
-    CacheHeader,     // should serve cache header
-    CacheHeaderOnly, // should serve cache header
-    CacheBody,       // should serve cache body
+    Off,                 // not using cache
+    CacheHeader,         // should serve cache header
+    CacheHeaderOnly,     // should serve cache header
+    CacheBody(bool), // should serve cache body with a bool to indicate if it has already called seek on the hit handler
     CacheHeaderMiss, // should serve cache header but upstream response should be admitted to cache
-    CacheBodyMiss,   // should serve cache body but upstream response should be admitted to cache
-    Done,            // should serve cache body
+    CacheBodyMiss(bool), // should serve cache body but upstream response should be admitted to cache, bool to indicate seek status
+    Done,                // should serve cache body
 }
 
 impl ServeFromCache {
@@ -1100,7 +1224,7 @@ impl ServeFromCache {
     }
 
     pub fn is_miss(&self) -> bool {
-        matches!(self, Self::CacheHeaderMiss | Self::CacheBodyMiss)
+        matches!(self, Self::CacheHeaderMiss | Self::CacheBodyMiss(_))
     }
 
     pub fn is_miss_header(&self) -> bool {
@@ -1108,7 +1232,7 @@ impl ServeFromCache {
     }
 
     pub fn is_miss_body(&self) -> bool {
-        matches!(self, Self::CacheBodyMiss)
+        matches!(self, Self::CacheBodyMiss(_))
     }
 
     pub fn should_discard_upstream(&self) -> bool {
@@ -1131,13 +1255,17 @@ impl ServeFromCache {
 
     pub fn enable_header_only(&mut self) {
         match self {
-            Self::CacheBody => *self = Self::Done, // TODO: make sure no body is read yet
+            Self::CacheBody(_) | Self::CacheBodyMiss(_) => *self = Self::Done, // TODO: make sure no body is read yet
             _ => *self = Self::CacheHeaderOnly,
         }
     }
 
     // This function is (best effort) cancel-safe to be used in select
-    pub async fn next_http_task(&mut self, cache: &mut HttpCache) -> Result<HttpTask> {
+    pub async fn next_http_task(
+        &mut self,
+        cache: &mut HttpCache,
+        range: &mut RangeBodyFilter,
+    ) -> Result<HttpTask> {
         if !cache.enabled() {
             // Cache is disabled due to internal error
             // TODO: if nothing is sent to eyeball yet, figure out a way to recovery by
@@ -1147,18 +1275,21 @@ impl ServeFromCache {
         match self {
             Self::Off => panic!("ProxyUseCache not enabled"),
             Self::CacheHeader => {
-                *self = Self::CacheBody;
+                *self = Self::CacheBody(true);
                 Ok(HttpTask::Header(cache_hit_header(cache), false)) // false for now
             }
             Self::CacheHeaderMiss => {
-                *self = Self::CacheBodyMiss;
+                *self = Self::CacheBodyMiss(true);
                 Ok(HttpTask::Header(cache_hit_header(cache), false)) // false for now
             }
             Self::CacheHeaderOnly => {
                 *self = Self::Done;
                 Ok(HttpTask::Header(cache_hit_header(cache), true))
             }
-            Self::CacheBody => {
+            Self::CacheBody(should_seek) => {
+                if *should_seek {
+                    self.maybe_seek_hit_handler(cache, range)?;
+                }
                 if let Some(b) = cache.hit_handler().read_body().await? {
                     Ok(HttpTask::Body(Some(b), false)) // false for now
                 } else {
@@ -1166,7 +1297,10 @@ impl ServeFromCache {
                     Ok(HttpTask::Done)
                 }
             }
-            Self::CacheBodyMiss => {
+            Self::CacheBodyMiss(should_seek) => {
+                if *should_seek {
+                    self.maybe_seek_miss_handler(cache, range)?;
+                }
                 // safety: called of enable_miss() call it only if the async_body_reader exist
                 if let Some(b) = cache.miss_body_reader().unwrap().read_body().await? {
                     Ok(HttpTask::Body(Some(b), false)) // false for now
@@ -1177,5 +1311,48 @@ impl ServeFromCache {
             }
             Self::Done => Ok(HttpTask::Done),
         }
+    }
+
+    fn maybe_seek_miss_handler(
+        &mut self,
+        cache: &mut HttpCache,
+        range_filter: &mut RangeBodyFilter,
+    ) -> Result<()> {
+        if let RangeType::Single(range) = &range_filter.range {
+            // safety: called only if the async_body_reader exists
+            if cache.miss_body_reader().unwrap().can_seek() {
+                cache
+                    .miss_body_reader()
+                    // safety: called only if the async_body_reader exists
+                    .unwrap()
+                    .seek(range.start, Some(range.end))
+                    .or_err(InternalError, "cannot seek miss handler")?;
+                // Because the miss body reader is seeking, we no longer need the
+                // RangeBodyFilter's help to return the requested byte range.
+                range_filter.range = RangeType::None;
+            }
+        }
+        *self = Self::CacheBodyMiss(false);
+        Ok(())
+    }
+
+    fn maybe_seek_hit_handler(
+        &mut self,
+        cache: &mut HttpCache,
+        range_filter: &mut RangeBodyFilter,
+    ) -> Result<()> {
+        if let RangeType::Single(range) = &range_filter.range {
+            if cache.hit_handler().can_seek() {
+                cache
+                    .hit_handler()
+                    .seek(range.start, Some(range.end))
+                    .or_err(InternalError, "cannot seek hit handler")?;
+                // Because the hit handler is seeking, we no longer need the
+                // RangeBodyFilter's help to return the requested byte range.
+                range_filter.range = RangeType::None;
+            }
+        }
+        *self = Self::CacheBody(false);
+        Ok(())
     }
 }

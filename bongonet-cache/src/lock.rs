@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,24 @@
 
 //! Cache lock
 
-use crate::key::CacheHashKey;
+use crate::{hashtable::ConcurrentHashTable, key::CacheHashKey, CacheKey};
 
-use crate::hashtable::ConcurrentHashTable;
 use bongonet_timeout::timeout;
 use std::sync::Arc;
+
+pub trait CacheKeyLock {
+    /// Try to lock a cache fetch
+    ///
+    /// Users should call after a cache miss before fetching the asset.
+    /// The returned [Locked] will tell the caller either to fetch or wait.
+    fn lock(&self, key: &CacheKey) -> Locked;
+
+    /// Release a lock for the given key
+    ///
+    /// When the write lock is dropped without being released, the read lock holders will consider
+    /// it to be failed so that they will compete for the write lock again.
+    fn release(&self, key: &CacheKey, reason: LockStatus);
+}
 
 const N_SHARDS: usize = 16;
 
@@ -48,18 +61,26 @@ impl CacheLock {
     /// Create a new [CacheLock] with the given lock timeout
     ///
     /// When the timeout is reached, the read locks are automatically unlocked
+    pub fn new_boxed(timeout: Duration) -> Box<Self> {
+        Box::new(CacheLock {
+            lock_table: ConcurrentHashTable::new(),
+            timeout,
+        })
+    }
+
+    /// Create a new [CacheLock] with the given lock timeout
+    ///
+    /// When the timeout is reached, the read locks are automatically unlocked
     pub fn new(timeout: Duration) -> Self {
         CacheLock {
             lock_table: ConcurrentHashTable::new(),
             timeout,
         }
     }
+}
 
-    /// Try to lock a cache fetch
-    ///
-    /// Users should call after a cache miss before fetching the asset.
-    /// The returned [Locked] will tell the caller either to fetch or wait.
-    pub fn lock<K: CacheHashKey>(&self, key: &K) -> Locked {
+impl CacheKeyLock for CacheLock {
+    fn lock(&self, key: &CacheKey) -> Locked {
         let hash = key.combined_bin();
         let key = u128::from_be_bytes(hash); // endianness doesn't matter
         let table = self.lock_table.get(key);
@@ -84,11 +105,7 @@ impl CacheLock {
         Locked::Write(permit)
     }
 
-    /// Release a lock for the given key
-    ///
-    /// When the write lock is dropped without being released, the read lock holders will consider
-    /// it to be failed so that they will compete for the write lock again.
-    pub fn release<K: CacheHashKey>(&self, key: &K, reason: LockStatus) {
+    fn release(&self, key: &CacheKey, reason: LockStatus) {
         let hash = key.combined_bin();
         let key = u128::from_be_bytes(hash); // endianness doesn't matter
         if let Some(lock) = self.lock_table.write(key).remove(&key) {
@@ -100,12 +117,14 @@ impl CacheLock {
     }
 }
 
+use log::warn;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
+use strum::IntoStaticStr;
 use tokio::sync::Semaphore;
 
 /// Status which the read locks could possibly see.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, IntoStaticStr)]
 pub enum LockStatus {
     /// Waiting for the writer to populate the asset
     Waiting,
@@ -150,7 +169,7 @@ impl From<u8> for LockStatus {
 }
 
 #[derive(Debug)]
-struct LockCore {
+pub struct LockCore {
     pub lock_start: Instant,
     pub timeout: Duration,
     pub(super) lock: Semaphore,
@@ -168,19 +187,19 @@ impl LockCore {
         })
     }
 
-    fn locked(&self) -> bool {
+    pub fn locked(&self) -> bool {
         self.lock.available_permits() == 0
     }
 
-    fn unlock(&self, reason: LockStatus) {
+    pub fn unlock(&self, reason: LockStatus) {
         self.lock_status.store(reason.into(), Ordering::SeqCst);
         // Any small positive number will do, 10 is used for RwLock as well.
         // No need to wake up all at once.
         self.lock.add_permits(10);
     }
 
-    fn lock_status(&self) -> LockStatus {
-        self.lock_status.load(Ordering::Relaxed).into()
+    pub fn lock_status(&self) -> LockStatus {
+        self.lock_status.load(Ordering::SeqCst).into()
     }
 }
 
@@ -197,11 +216,22 @@ impl ReadLock {
             return;
         }
 
-        // TODO: should subtract now - start so that the lock don't wait beyond start + timeout
-        // Also need to be careful not to wake everyone up at the same time
+        // TODO: need to be careful not to wake everyone up at the same time
         // (maybe not an issue because regular cache lock release behaves that way)
-        let _ = timeout(self.0.timeout, self.0.lock.acquire()).await;
-        // permit is returned to Semaphore right away
+        if let Some(duration) = self.0.timeout.checked_sub(self.0.lock_start.elapsed()) {
+            match timeout(duration, self.0.lock.acquire()).await {
+                Ok(Ok(_)) => { // permit is returned to Semaphore right away
+                }
+                Ok(Err(e)) => {
+                    warn!("error acquiring semaphore {e:?}")
+                }
+                Err(_) => {
+                    self.0
+                        .lock_status
+                        .store(LockStatus::Timeout.into(), Ordering::SeqCst);
+                }
+            }
+        }
     }
 
     /// Test if it is still locked
@@ -211,7 +241,7 @@ impl ReadLock {
 
     /// Whether the lock is expired, e.g., the writer has been holding the lock for too long
     pub fn expired(&self) -> bool {
-        // NOTE: this whether the lock is currently expired
+        // NOTE: this is whether the lock is currently expired
         // not whether it was timed out during wait()
         self.0.lock_start.elapsed() >= self.0.timeout
     }
@@ -232,13 +262,13 @@ impl ReadLock {
 pub struct WritePermit(Arc<LockCore>);
 
 impl WritePermit {
-    fn new(timeout: Duration) -> (WritePermit, LockStub) {
+    pub fn new(timeout: Duration) -> (WritePermit, LockStub) {
         let lock = LockCore::new_arc(timeout);
         let stub = LockStub(lock.clone());
         (WritePermit(lock), stub)
     }
 
-    fn unlock(&self, reason: LockStatus) {
+    pub fn unlock(&self, reason: LockStatus) {
         self.0.unlock(reason)
     }
 }
@@ -252,7 +282,7 @@ impl Drop for WritePermit {
     }
 }
 
-struct LockStub(Arc<LockCore>);
+pub struct LockStub(pub Arc<LockCore>);
 impl LockStub {
     pub fn read_lock(&self) -> ReadLock {
         ReadLock(self.0.clone())
@@ -266,7 +296,7 @@ mod test {
 
     #[test]
     fn test_get_release() {
-        let cache_lock = CacheLock::new(Duration::from_secs(1000));
+        let cache_lock = CacheLock::new_boxed(Duration::from_secs(1000));
         let key1 = CacheKey::new("", "a", "1");
         let locked1 = cache_lock.lock(&key1);
         assert!(locked1.is_write()); // write permit
@@ -279,7 +309,7 @@ mod test {
 
     #[tokio::test]
     async fn test_lock() {
-        let cache_lock = CacheLock::new(Duration::from_secs(1000));
+        let cache_lock = CacheLock::new_boxed(Duration::from_secs(1000));
         let key1 = CacheKey::new("", "a", "1");
         let permit = match cache_lock.lock(&key1) {
             Locked::Write(w) => w,
@@ -300,7 +330,7 @@ mod test {
 
     #[tokio::test]
     async fn test_lock_timeout() {
-        let cache_lock = CacheLock::new(Duration::from_secs(1));
+        let cache_lock = CacheLock::new_boxed(Duration::from_secs(1));
         let key1 = CacheKey::new("", "a", "1");
         let permit = match cache_lock.lock(&key1) {
             Locked::Write(w) => w,

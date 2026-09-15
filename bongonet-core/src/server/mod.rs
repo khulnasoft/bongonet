@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,9 @@
 //! Server process and configuration management
 
 pub mod configuration;
+#[cfg(unix)]
 mod daemon;
+#[cfg(unix)]
 pub(crate) mod transfer_fd;
 
 use bongonet_runtime::Runtime;
@@ -25,12 +27,14 @@ use log::{debug, error, info, warn};
 use sentry::ClientOptions;
 use std::sync::Arc;
 use std::thread;
+#[cfg(unix)]
 use tokio::signal::unix;
 use tokio::sync::{watch, Mutex};
 use tokio::time::{sleep, Duration};
 
 use crate::services::Service;
 use configuration::{Opt, ServerConf};
+#[cfg(unix)]
 pub use transfer_fd::Fds;
 
 use bongonet_error::{Error, ErrorType, Result};
@@ -50,7 +54,80 @@ enum ShutdownType {
 /// The receiver for server's shutdown event. The value will turn to true once the server starts
 /// to shutdown
 pub type ShutdownWatch = watch::Receiver<bool>;
+#[cfg(unix)]
 pub type ListenFds = Arc<Mutex<Fds>>;
+
+/// The type of shutdown process that has been requested.
+#[derive(Debug)]
+pub enum ShutdownSignal {
+    /// Send file descriptors to the new process before starting runtime shutdown with
+    /// [ServerConf::graceful_shutdown_timeout_seconds] timeout.
+    GracefulUpgrade,
+    /// Wait for [ServerConf::grace_period_seconds] before starting runtime shutdown with
+    /// [ServerConf::graceful_shutdown_timeout_seconds] timeout.
+    GracefulTerminate,
+    /// Shutdown with no timeout for runtime shutdown.
+    FastShutdown,
+}
+
+/// Watcher of a shutdown signal, e.g., [UnixShutdownSignalWatch] for Unix-like
+/// platforms.
+#[async_trait]
+pub trait ShutdownSignalWatch {
+    /// Returns the desired shutdown type once one has been requested.
+    async fn recv(&self) -> ShutdownSignal;
+}
+
+/// A Unix shutdown watcher that awaits for Unix signals.
+///
+/// - `SIGQUIT`: graceful upgrade
+/// - `SIGTERM`: graceful terminate
+/// - `SIGINT`: fast shutdown
+#[cfg(unix)]
+pub struct UnixShutdownSignalWatch;
+
+#[cfg(unix)]
+#[async_trait]
+impl ShutdownSignalWatch for UnixShutdownSignalWatch {
+    async fn recv(&self) -> ShutdownSignal {
+        let mut graceful_upgrade_signal = unix::signal(unix::SignalKind::quit()).unwrap();
+        let mut graceful_terminate_signal = unix::signal(unix::SignalKind::terminate()).unwrap();
+        let mut fast_shutdown_signal = unix::signal(unix::SignalKind::interrupt()).unwrap();
+
+        tokio::select! {
+            _ = graceful_upgrade_signal.recv() => {
+                ShutdownSignal::GracefulUpgrade
+            },
+            _ = graceful_terminate_signal.recv() => {
+                ShutdownSignal::GracefulTerminate
+            },
+            _ = fast_shutdown_signal.recv() => {
+                ShutdownSignal::FastShutdown
+            },
+        }
+    }
+}
+
+/// Arguments to configure running of the bongonet server.
+pub struct RunArgs {
+    /// Signal for initating shutdown
+    #[cfg(unix)]
+    pub shutdown_signal: Box<dyn ShutdownSignalWatch>,
+}
+
+impl Default for RunArgs {
+    #[cfg(unix)]
+    fn default() -> Self {
+        Self {
+            shutdown_signal: Box::new(UnixShutdownSignalWatch),
+        }
+    }
+
+    #[cfg(windows)]
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 /// The server object
 ///
@@ -59,6 +136,7 @@ pub type ListenFds = Arc<Mutex<Fds>>;
 /// zero downtime upgrade and error reporting.
 pub struct Server {
     services: Vec<Box<dyn Service>>,
+    #[cfg(unix)]
     listen_fds: Option<ListenFds>,
     shutdown_watch: watch::Sender<bool>,
     // TODO: we many want to drop this copy to let sender call closed()
@@ -67,6 +145,8 @@ pub struct Server {
     pub configuration: Arc<ServerConf>,
     /// The parser command line options
     pub options: Option<Opt>,
+    #[cfg(feature = "sentry")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sentry")))]
     /// The Sentry ClientOptions.
     ///
     /// Panics and other events sentry captures will be sent to this DSN **only in release mode**
@@ -76,24 +156,23 @@ pub struct Server {
 // TODO: delete the pid when exit
 
 impl Server {
-    async fn main_loop(&self) -> ShutdownType {
+    #[cfg(unix)]
+    async fn main_loop(&self, run_args: RunArgs) -> ShutdownType {
         // waiting for exit signal
-        // TODO: there should be a signal handling function
-        let mut graceful_upgrade_signal = unix::signal(unix::SignalKind::quit()).unwrap();
-        let mut graceful_terminate_signal = unix::signal(unix::SignalKind::terminate()).unwrap();
-        let mut fast_shutdown_signal = unix::signal(unix::SignalKind::interrupt()).unwrap();
-        tokio::select! {
-            _ = fast_shutdown_signal.recv() => {
+        match run_args.shutdown_signal.recv().await {
+            ShutdownSignal::FastShutdown => {
                 info!("SIGINT received, exiting");
                 ShutdownType::Quick
-            },
-            _ = graceful_terminate_signal.recv() => {
+            }
+            ShutdownSignal::GracefulTerminate => {
                 // we receive a graceful terminate, all instances are instructed to stop
                 info!("SIGTERM received, gracefully exiting");
                 // graceful shutdown if there are listening sockets
                 info!("Broadcasting graceful shutdown");
                 match self.shutdown_watch.send(true) {
-                    Ok(_) => { info!("Graceful shutdown started!"); }
+                    Ok(_) => {
+                        info!("Graceful shutdown started!");
+                    }
                     Err(e) => {
                         error!("Graceful shutdown broadcast failed: {e}");
                     }
@@ -101,7 +180,7 @@ impl Server {
                 info!("Broadcast graceful shutdown complete");
                 ShutdownType::Graceful
             }
-            _ = graceful_upgrade_signal.recv() => {
+            ShutdownSignal::GracefulUpgrade => {
                 // TODO: still need to select! on signals in case a fast shutdown is needed
                 // aka: move below to another task and only kick it off here
                 info!("SIGQUIT received, sending socks and gracefully exiting");
@@ -109,14 +188,14 @@ impl Server {
                     let fds = fds.lock().await;
                     info!("Trying to send socks");
                     // XXX: this is blocking IO
-                    match fds.send_to_sock(
-                        self.configuration.as_ref().upgrade_sock.as_str())
-                    {
-                        Ok(_) => {info!("listener sockets sent");},
+                    match fds.send_to_sock(self.configuration.as_ref().upgrade_sock.as_str()) {
+                        Ok(_) => {
+                            info!("listener sockets sent");
+                        }
                         Err(e) => {
                             error!("Unable to send listener sockets to new process: {e}");
                             // sentry log error on fd send failure
-                            #[cfg(not(debug_assertions))]
+                            #[cfg(all(not(debug_assertions), feature = "sentry"))]
                             sentry::capture_error(&e);
                         }
                     }
@@ -124,7 +203,9 @@ impl Server {
                     info!("Broadcasting graceful shutdown");
                     // gracefully exiting
                     match self.shutdown_watch.send(true) {
-                        Ok(_) => { info!("Graceful shutdown started!"); }
+                        Ok(_) => {
+                            info!("Graceful shutdown started!");
+                        }
                         Err(e) => {
                             error!("Graceful shutdown broadcast failed: {e}");
                             // switch to fast shutdown
@@ -137,13 +218,13 @@ impl Server {
                     info!("No socks to send, shutting down.");
                     ShutdownType::Graceful
                 }
-            },
+            }
         }
     }
 
     fn run_service(
         mut service: Box<dyn Service>,
-        fds: Option<ListenFds>,
+        #[cfg(unix)] fds: Option<ListenFds>,
         shutdown: ShutdownWatch,
         threads: usize,
         work_stealing: bool,
@@ -153,12 +234,19 @@ impl Server {
     {
         let service_runtime = Server::create_runtime(service.name(), threads, work_stealing);
         service_runtime.get_handle().spawn(async move {
-            service.start_service(fds, shutdown).await;
+            service
+                .start_service(
+                    #[cfg(unix)]
+                    fds,
+                    shutdown,
+                )
+                .await;
             info!("service exited.")
         });
         service_runtime
     }
 
+    #[cfg(unix)]
     fn load_fds(&mut self, upgrade: bool) -> Result<(), nix::Error> {
         let mut fds = Fds::new();
         if upgrade {
@@ -176,21 +264,26 @@ impl Server {
     ///
     /// If a configuration file path is provided as part of `opt`, it will be ignored
     /// and a warning will be logged.
-    pub fn new_with_opt_and_conf(opt: Opt, mut conf: ServerConf) -> Server {
-        if let Some(c) = opt.conf.as_ref() {
-            warn!("Ignoring command line argument using '{c}' as configuration, and using provided configuration instead.");
+    pub fn new_with_opt_and_conf(raw_opt: impl Into<Option<Opt>>, mut conf: ServerConf) -> Server {
+        let opt = raw_opt.into();
+        if let Some(opts) = &opt {
+            if let Some(c) = opts.conf.as_ref() {
+                warn!("Ignoring command line argument using '{c}' as configuration, and using provided configuration instead.");
+            }
+            conf.merge_with_opt(opts);
         }
-        conf.merge_with_opt(&opt);
 
         let (tx, rx) = watch::channel(false);
 
         Server {
             services: vec![],
+            #[cfg(unix)]
             listen_fds: None,
             shutdown_watch: tx,
             shutdown_recv: rx,
             configuration: Arc::new(conf),
-            options: Some(opt),
+            options: opt,
+            #[cfg(feature = "sentry")]
             sentry: None,
         }
     }
@@ -226,11 +319,13 @@ impl Server {
 
         Ok(Server {
             services: vec![],
+            #[cfg(unix)]
             listen_fds: None,
             shutdown_watch: tx,
             shutdown_recv: rx,
             configuration: Arc::new(conf),
             options: opt,
+            #[cfg(feature = "sentry")]
             sentry: None,
         })
     }
@@ -256,7 +351,7 @@ impl Server {
         debug!("{:#?}", self.options);
 
         /* only init sentry in release builds */
-        #[cfg(not(debug_assertions))]
+        #[cfg(all(not(debug_assertions), feature = "sentry"))]
         let _guard = self.sentry.as_ref().map(|opts| sentry::init(opts.clone()));
 
         if self.options.as_ref().map_or(false, |o| o.test) {
@@ -265,19 +360,30 @@ impl Server {
         }
 
         // load fds
+        #[cfg(unix)]
         match self.load_fds(self.options.as_ref().map_or(false, |o| o.upgrade)) {
             Ok(_) => {
                 info!("Bootstrap done");
             }
             Err(e) => {
                 // sentry log error on fd load failure
-                #[cfg(not(debug_assertions))]
+                #[cfg(all(not(debug_assertions), feature = "sentry"))]
                 sentry::capture_error(&e);
 
                 error!("Bootstrap failed on error: {:?}, exiting.", e);
                 std::process::exit(1);
             }
         }
+    }
+
+    /// Start the server using [Self::run] and default [RunArgs].
+    pub fn run_forever(self) -> ! {
+        info!("Server starting");
+
+        self.run(RunArgs::default());
+
+        info!("All runtimes exited, exiting now");
+        std::process::exit(0)
     }
 
     /// Start the server
@@ -287,11 +393,12 @@ impl Server {
     ///
     /// Note: this function may fork the process for daemonization, so any additional threads created
     /// before this function will be lost to any service logic once this function is called.
-    pub fn run_forever(mut self) -> ! {
+    pub fn run(mut self, run_args: RunArgs) {
         info!("Server starting");
 
         let conf = self.configuration.as_ref();
 
+        #[cfg(unix)]
         if conf.daemon {
             info!("Daemonizing the server");
             fast_timeout::pause_for_fork();
@@ -299,8 +406,13 @@ impl Server {
             fast_timeout::unpause();
         }
 
+        #[cfg(windows)]
+        if conf.daemon {
+            panic!("Daemonizing under windows is not supported");
+        }
+
         /* only init sentry in release builds */
-        #[cfg(not(debug_assertions))]
+        #[cfg(all(not(debug_assertions), feature = "sentry"))]
         let _guard = self.sentry.as_ref().map(|opts| sentry::init(opts.clone()));
 
         let mut runtimes: Vec<Runtime> = Vec::new();
@@ -309,6 +421,7 @@ impl Server {
             let threads = service.threads().unwrap_or(conf.threads);
             let runtime = Server::run_service(
                 service,
+                #[cfg(unix)]
                 self.listen_fds.clone(),
                 self.shutdown_recv.clone(),
                 threads,
@@ -320,7 +433,12 @@ impl Server {
         // blocked on main loop so that it runs forever
         // Only work steal runtime can use block_on()
         let server_runtime = Server::create_runtime("Server", 1, true);
-        let shutdown_type = server_runtime.get_handle().block_on(self.main_loop());
+        #[cfg(unix)]
+        let shutdown_type = server_runtime
+            .get_handle()
+            .block_on(self.main_loop(run_args));
+        #[cfg(windows)]
+        let shutdown_type = ShutdownType::Graceful;
 
         if matches!(shutdown_type, ShutdownType::Graceful) {
             let exit_timeout = self
@@ -358,8 +476,6 @@ impl Server {
                 error!("Failed to shutdown runtime: {:?}", e);
             }
         }
-        info!("All runtimes exited, exiting now");
-        std::process::exit(0)
     }
 
     fn create_runtime(name: &str, threads: usize, work_steal: bool) -> Runtime {

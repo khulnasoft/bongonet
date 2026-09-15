@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -105,6 +105,7 @@ pub enum ErrorType {
     ConnectTimedout,
     ConnectRefused,
     ConnectNoRoute,
+    TLSWantX509Lookup,
     TLSHandshakeFailure,
     TLSHandshakeTimedout,
     InvalidCert,
@@ -164,6 +165,7 @@ impl ErrorType {
             ErrorType::ConnectRefused => "ConnectRefused",
             ErrorType::ConnectNoRoute => "ConnectNoRoute",
             ErrorType::ConnectProxyFailure => "ConnectProxyFailure",
+            ErrorType::TLSWantX509Lookup => "TLSWantX509Lookup",
             ErrorType::TLSHandshakeFailure => "TLSHandshakeFailure",
             ErrorType::TLSHandshakeTimedout => "TLSHandshakeTimedout",
             ErrorType::InvalidCert => "InvalidCert",

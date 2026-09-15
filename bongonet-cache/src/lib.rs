@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,13 @@
 
 use bongonet_error::Result;
 use bongonet_http::ResponseHeader;
+use cf_rustracing::tag::Tag;
 use http::{method::Method, request::Parts as ReqHeader, response::Parts as RespHeader};
 use key::{CacheHashKey, HashBinary};
 use lock::WritePermit;
+use log::warn;
 use std::time::{Duration, Instant, SystemTime};
+use strum::IntoStaticStr;
 use trace::CacheTraceCTX;
 
 pub mod cache_control;
@@ -41,7 +44,7 @@ mod variance;
 
 use crate::max_file_size::MaxFileSizeMissHandler;
 pub use key::CacheKey;
-use lock::{CacheLock, LockStatus, Locked};
+use lock::{CacheKeyLock, LockStatus, Locked};
 pub use memory::MemCache;
 pub use meta::{CacheMeta, CacheMetaDefaults};
 pub use storage::{HitHandler, MissHandler, PurgeType, Storage};
@@ -57,6 +60,7 @@ pub struct HttpCache {
     phase: CachePhase,
     // Box the rest so that a disabled HttpCache struct is small
     inner: Option<Box<HttpCacheInner>>,
+    digest: HttpCacheDigest,
 }
 
 /// This reflects the phase of HttpCache during the lifetime of a request
@@ -123,8 +127,12 @@ pub enum NoCacheReason {
     ///
     /// This happens when the cache predictor predicted that this request is not cacheable, but
     /// the response turns out to be OK to cache. However, it might be too large to re-enable caching
-    /// for this request.
+    /// for this request
     Deferred,
+    /// Due to the proxy upstream filter declining the current request from going upstream
+    DeclinedToUpstream,
+    /// Due to the upstream being unreachable or otherwise erroring during proxying
+    UpstreamError,
     /// The writer of the cache lock sees that the request is not cacheable (Could be OriginNotCache)
     CacheLockGiveUp,
     /// This request waited too long for the writer of the cache lock to finish, so this request will
@@ -145,10 +153,35 @@ impl NoCacheReason {
             StorageError => "StorageError",
             InternalError => "InternalError",
             Deferred => "Deferred",
+            DeclinedToUpstream => "DeclinedToUpstream",
+            UpstreamError => "UpstreamError",
             CacheLockGiveUp => "CacheLockGiveUp",
             CacheLockTimeout => "CacheLockTimeout",
             Custom(s) => s,
         }
+    }
+}
+
+/// Information collected about the caching operation that will not be cleared
+#[derive(Debug, Default)]
+pub struct HttpCacheDigest {
+    pub lock_duration: Option<Duration>,
+    // time spent in cache lookup and reading the header
+    pub lookup_duration: Option<Duration>,
+}
+
+/// Convenience function to add a duration to an optional duration
+fn add_duration_to_opt(target_opt: &mut Option<Duration>, to_add: Duration) {
+    *target_opt = Some(target_opt.map_or(to_add, |existing| existing + to_add));
+}
+
+impl HttpCacheDigest {
+    fn add_lookup_duration(&mut self, extra_lookup_duration: Duration) {
+        add_duration_to_opt(&mut self.lookup_duration, extra_lookup_duration)
+    }
+
+    fn add_lock_duration(&mut self, extra_lock_duration: Duration) {
+        add_duration_to_opt(&mut self.lock_duration, extra_lock_duration)
     }
 }
 
@@ -179,34 +212,59 @@ impl RespCacheable {
     }
 }
 
+/// Indicators of which level of purge logic to apply to an asset. As in should
+/// the purged file be revalidated or re-retrieved altogether
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ForcedInvalidationKind {
+    /// Indicates the asset should be considered stale and revalidated
+    ForceExpired,
+
+    /// Indicates the asset should be considered absent and treated like a miss
+    /// instead of a hit
+    ForceMiss,
+}
+
 /// Freshness state of cache hit asset
 ///
 ///
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, IntoStaticStr, PartialEq, Eq)]
+#[strum(serialize_all = "snake_case")]
 pub enum HitStatus {
+    /// The asset's freshness directives indicate it has expired
     Expired,
+
+    /// The asset was marked as expired, and should be treated as stale
     ForceExpired,
+
+    /// The asset was marked as absent, and should be treated as a miss
+    ForceMiss,
+
+    /// An error occurred while processing the asset, so it should be treated as
+    /// a miss
     FailedHitFilter,
+
+    /// The asset is not expired
     Fresh,
 }
 
 impl HitStatus {
     /// For displaying cache hit status
     pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Expired => "expired",
-            Self::ForceExpired => "force_expired",
-            Self::FailedHitFilter => "failed_hit_filter",
-            Self::Fresh => "fresh",
-        }
+        self.into()
     }
 
     /// Whether cached asset can be served as fresh
     pub fn is_fresh(&self) -> bool {
-        match self {
-            Self::Expired | Self::ForceExpired | Self::FailedHitFilter => false,
-            Self::Fresh => true,
-        }
+        *self == HitStatus::Fresh
+    }
+
+    /// Check whether the hit status should be treated as a miss. A forced miss
+    /// is obviously treated as a miss. A hit-filter failure is treated as a
+    /// miss because we can't use the asset as an actual hit. If we treat it as
+    /// expired, we still might not be able to use it even if revalidation
+    /// succeeds.
+    pub fn is_treated_as_miss(self) -> bool {
+        matches!(self, HitStatus::ForceMiss | HitStatus::FailedHitFilter)
     }
 }
 
@@ -223,10 +281,7 @@ struct HttpCacheInner {
     pub eviction: Option<&'static (dyn eviction::EvictionManager + Sync)>,
     pub predictor: Option<&'static (dyn predictor::CacheablePredictor + Sync)>,
     pub lock: Option<Locked>, // TODO: these 3 fields should come in 1 sub struct
-    pub cache_lock: Option<&'static CacheLock>,
-    pub lock_duration: Option<Duration>,
-    // time spent in cache lookup and reading the header
-    pub lookup_duration: Option<Duration>,
+    pub cache_lock: Option<&'static (dyn CacheKeyLock + Send + Sync)>,
     pub traces: trace::CacheTraceCTX,
 }
 
@@ -238,6 +293,7 @@ impl HttpCache {
         HttpCache {
             phase: CachePhase::Disabled(NoCacheReason::NeverEnabled),
             inner: None,
+            digest: HttpCacheDigest::default(),
         }
     }
 
@@ -276,9 +332,44 @@ impl HttpCache {
             .is_some()
     }
 
+    /// Release the cache lock if the current request is a cache writer.
+    ///
+    /// Generally callers should prefer using `disable` when a cache lock should be released
+    /// due to an error to clear all cache context. This function is for releasing the cache lock
+    /// while still keeping the cache around for reading, e.g. when serving stale.
+    pub fn release_write_lock(&mut self, reason: NoCacheReason) {
+        use NoCacheReason::*;
+        if let Some(inner) = self.inner.as_mut() {
+            let lock = inner.lock.take();
+            if let Some(Locked::Write(_r)) = lock {
+                let lock_status = match reason {
+                    // let the next request try to fetch it
+                    InternalError | StorageError | Deferred | UpstreamError => {
+                        LockStatus::TransientError
+                    }
+                    // depends on why the proxy upstream filter declined the request,
+                    // for now still allow next request try to acquire to avoid thundering herd
+                    DeclinedToUpstream => LockStatus::TransientError,
+                    // no need for the lock anymore
+                    OriginNotCache | ResponseTooLarge => LockStatus::GiveUp,
+                    // not sure which LockStatus make sense, we treat it as GiveUp for now
+                    Custom(_) => LockStatus::GiveUp,
+                    // should never happen, NeverEnabled shouldn't hold a lock
+                    NeverEnabled => panic!("NeverEnabled holds a write lock"),
+                    CacheLockGiveUp | CacheLockTimeout => {
+                        panic!("CacheLock* are for cache lock readers only")
+                    }
+                };
+                inner
+                    .cache_lock
+                    .unwrap()
+                    .release(inner.key.as_ref().unwrap(), lock_status);
+            }
+        }
+    }
+
     /// Disable caching
     pub fn disable(&mut self, reason: NoCacheReason) {
-        use NoCacheReason::*;
         match self.phase {
             CachePhase::Disabled(_) => {
                 // replace reason
@@ -286,28 +377,7 @@ impl HttpCache {
             }
             _ => {
                 self.phase = CachePhase::Disabled(reason);
-                if let Some(inner) = self.inner.as_mut() {
-                    let lock = inner.lock.take();
-                    if let Some(Locked::Write(_r)) = lock {
-                        let lock_status = match reason {
-                            // let the next request try to fetch it
-                            InternalError | StorageError | Deferred => LockStatus::TransientError,
-                            // no need for the lock anymore
-                            OriginNotCache | ResponseTooLarge => LockStatus::GiveUp,
-                            // not sure which LockStatus make sense, we treat it as GiveUp for now
-                            Custom(_) => LockStatus::GiveUp,
-                            // should never happen, NeverEnabled shouldn't hold a lock
-                            NeverEnabled => panic!("NeverEnabled holds a write lock"),
-                            CacheLockGiveUp | CacheLockTimeout => {
-                                panic!("CacheLock* are for cache lock readers only")
-                            }
-                        };
-                        inner
-                            .cache_lock
-                            .unwrap()
-                            .release(inner.key.as_ref().unwrap(), lock_status);
-                    }
-                }
+                self.release_write_lock(reason);
                 // log initial disable reason
                 self.inner_mut()
                     .traces
@@ -356,7 +426,7 @@ impl HttpCache {
         storage: &'static (dyn storage::Storage + Sync),
         eviction: Option<&'static (dyn eviction::EvictionManager + Sync)>,
         predictor: Option<&'static (dyn predictor::CacheablePredictor + Sync)>,
-        cache_lock: Option<&'static CacheLock>,
+        cache_lock: Option<&'static (dyn CacheKeyLock + Send + Sync)>,
     ) {
         match self.phase {
             CachePhase::Disabled(_) => {
@@ -373,8 +443,6 @@ impl HttpCache {
                     predictor,
                     lock: None,
                     cache_lock,
-                    lock_duration: None,
-                    lookup_duration: None,
                     traces: CacheTraceCTX::new(),
                 }));
             }
@@ -388,10 +456,24 @@ impl HttpCache {
             inner.traces.enable(parent_span);
         }
     }
+    
+    // Get the cache parent tracing span
+    pub fn get_cache_span(&self) -> Option<trace::SpanHandle> {
+        self.inner.as_ref().map(|i| i.traces.get_cache_span())
+    }
+
+    // Get the cache parent tracing span
+    pub fn get_cache_span(&self) -> Option<trace::SpanHandle> {
+        self.inner.as_ref().map(|i| i.traces.get_cache_span())
+    }
 
     // Get the cache `miss` tracing span
-    pub fn get_miss_span(&mut self) -> Option<trace::SpanHandle> {
-        self.inner.as_mut().map(|i| i.traces.get_miss_span())
+    pub fn get_miss_span(&self) -> Option<trace::SpanHandle> {
+        self.inner.as_ref().map(|i| i.traces.get_miss_span())
+    }
+    // Get the cache `hit` tracing span
+    pub fn get_hit_span(&self) -> Option<trace::SpanHandle> {
+        self.inner.as_ref().map(|i| i.traces.get_hit_span())
     }
 
     // shortcut to access inner, panic if phase is disabled
@@ -455,34 +537,46 @@ impl HttpCache {
     ///
     /// The `hit_status` enum allows the caller to force expire assets.
     pub fn cache_found(&mut self, meta: CacheMeta, hit_handler: HitHandler, hit_status: HitStatus) {
-        match self.phase {
-            // Stale allowed because of cache lock and then retry
-            CachePhase::CacheKey | CachePhase::Stale => {
-                self.phase = if hit_status.is_fresh() {
-                    CachePhase::Hit
-                } else {
-                    CachePhase::Stale
-                };
-                let phase = self.phase;
-                let inner = self.inner_mut();
-                let key = inner.key.as_ref().unwrap();
-                if phase == CachePhase::Stale {
-                    if let Some(lock) = inner.cache_lock.as_ref() {
-                        inner.lock = Some(lock.lock(key));
-                    }
-                }
-                inner.traces.log_meta(&meta);
-                if let Some(eviction) = inner.eviction {
-                    // TODO: make access() accept CacheKey
-                    let cache_key = key.to_compact();
-                    // FIXME: get size
-                    eviction.access(&cache_key, 0, meta.0.internal.fresh_until);
-                }
-                inner.traces.start_hit_span(phase, hit_status);
-                inner.meta = Some(meta);
-                inner.body_reader = Some(hit_handler);
+        // Stale allowed because of cache lock and then retry
+        if !matches!(self.phase, CachePhase::CacheKey | CachePhase::Stale) {
+            panic!("wrong phase {:?}", self.phase)
+        }
+
+        self.phase = match hit_status {
+            HitStatus::Fresh => CachePhase::Hit,
+            HitStatus::Expired | HitStatus::ForceExpired => CachePhase::Stale,
+            HitStatus::FailedHitFilter | HitStatus::ForceMiss => self.phase,
+        };
+
+        let phase = self.phase;
+        let inner = self.inner_mut();
+
+        let key = inner.key.as_ref().unwrap();
+
+        // The cache lock might not be set for stale hit or hits treated as
+        // misses, so we need to initialize it here
+        if phase == CachePhase::Stale || hit_status.is_treated_as_miss() {
+            if let Some(lock) = inner.cache_lock.as_ref() {
+                inner.lock = Some(lock.lock(key));
             }
-            _ => panic!("wrong phase {:?}", self.phase),
+        }
+
+        if hit_status.is_treated_as_miss() {
+            // Clear the body and meta for hits that are treated as misses
+            inner.body_reader = None;
+            inner.meta = None;
+        } else {
+            // Set the metadata appropriately for legit hits
+            inner.traces.start_hit_span(phase, hit_status);
+            inner.traces.log_meta_in_hit_span(&meta);
+            if let Some(eviction) = inner.eviction {
+                // TODO: make access() accept CacheKey
+                let cache_key = key.to_compact();
+                // FIXME(BONGONET-1914): get size
+                eviction.access(&cache_key, 0, meta.0.internal.fresh_until);
+            }
+            inner.meta = Some(meta);
+            inner.body_reader = Some(hit_handler);
         }
     }
 
@@ -499,6 +593,11 @@ impl HttpCache {
             // from Stale: waited for cache lock, then retried and found asset was gone
             CachePhase::CacheKey | CachePhase::Bypass | CachePhase::Stale => {
                 self.phase = CachePhase::Miss;
+                // It's possible that we've set the meta on lookup and have come back around
+                // here after not being able to acquire the cache lock, and our item has since
+                // purged or expired. We should be sure that the meta is not set in this case
+                // as there shouldn't be a meta set for cache misses.
+                self.inner_mut().meta = None;
                 self.inner_mut().traces.start_miss_span();
             }
             _ => panic!("wrong phase {:?}", self.phase),
@@ -606,7 +705,15 @@ impl HttpCache {
                     // Downstream read and upstream write can be decoupled
                     let body_reader = inner
                         .storage
-                        .lookup(key, &inner.traces.get_miss_span())
+                        .lookup_streaming_write(
+                            key,
+                            inner
+                                .miss_handler
+                                .as_ref()
+                                .expect("miss handler already set")
+                                .streaming_write_tag(),
+                            &inner.traces.get_miss_span(),
+                        )
                         .await?;
 
                     if let Some((_meta, body_reader)) = body_reader {
@@ -659,16 +766,18 @@ impl HttpCache {
                     let cache_key = key.to_compact();
                     let meta = inner.meta.as_ref().unwrap();
                     let evicted = eviction.admit(cache_key, size, meta.0.internal.fresh_until);
-                    // TODO: make this async
+                    // actual eviction can be done async
                     let span = inner.traces.child("eviction");
                     let handle = span.handle();
-                    for item in evicted {
-                        // TODO: warn/log the error
-                        let _ = inner
-                            .storage
-                            .purge(&item, PurgeType::Eviction, &handle)
-                            .await;
-                    }
+                    let storage = inner.storage;
+                    tokio::task::spawn(async move {
+                        for item in evicted {
+                            if let Err(e) = storage.purge(&item, PurgeType::Eviction, &handle).await
+                            {
+                                warn!("Failed to purge {item} during eviction for finish miss handler: {e}");
+                            }
+                        }
+                    });
                 }
                 inner.traces.finish_miss_span();
                 Ok(())
@@ -683,7 +792,8 @@ impl HttpCache {
             // TODO: store the staled meta somewhere else for future use?
             CachePhase::Stale | CachePhase::Miss => {
                 let inner = self.inner_mut();
-                inner.traces.log_meta(&meta);
+                // TODO: have a separate expired span?
+                inner.traces.log_meta_in_miss_span(&meta);
                 inner.meta = Some(meta);
             }
             _ => panic!("wrong phase {:?}", self.phase),
@@ -705,10 +815,15 @@ impl HttpCache {
                 // that requires cacheable_filter to take a mut header and just return InternalMeta
 
                 // update new meta with old meta's created time
-                let created = inner.meta.as_ref().unwrap().0.internal.created;
+                let old_meta = inner.meta.take().unwrap();
+                let created = old_meta.0.internal.created;
                 meta.0.internal.created = created;
                 // meta.internal.updated was already set to new meta's `created`,
                 // no need to set `updated` here
+                // Merge old extensions with new ones. New exts take precedence if they conflict.
+                let mut extensions = old_meta.0.extensions;
+                extensions.extend(meta.0.extensions);
+                meta.0.extensions = extensions;
 
                 inner.meta.replace(meta);
 
@@ -784,6 +899,8 @@ impl HttpCache {
             CachePhase::Stale => {
                 // replace cache meta header
                 self.inner_mut().meta.as_mut().unwrap().0.header = header;
+                // upstream request done, release write lock
+                self.release_write_lock(reason);
             }
             _ => panic!("wrong phase {:?}", self.phase),
         }
@@ -915,18 +1032,16 @@ impl HttpCache {
         match self.phase {
             // Stale is allowed here because stale-> cache_lock -> lookup again
             CachePhase::CacheKey | CachePhase::Stale => {
-                let inner = self.inner_mut();
+                let inner = self
+                    .inner
+                    .as_mut()
+                    .expect("Cache phase is checked and should have inner");
                 let mut span = inner.traces.child("lookup");
                 let key = inner.key.as_ref().unwrap(); // safe, this phase should have cache key
                 let now = Instant::now();
                 let result = inner.storage.lookup(key, &span.handle()).await?;
-                let lookup_duration = now.elapsed();
                 // one request may have multiple lookups
-                inner.lookup_duration = Some(
-                    inner
-                        .lookup_duration
-                        .map_or(lookup_duration, |d| d + lookup_duration),
-                );
+                self.digest.add_lookup_duration(now.elapsed());
                 let result = result.and_then(|(meta, header)| {
                     if let Some(ts) = inner.valid_after {
                         if meta.created() < ts {
@@ -957,7 +1072,8 @@ impl HttpCache {
     /// - return false if the current meta doesn't match the variance, need to cache_lookup() again
     pub fn cache_vary_lookup(&mut self, variance: HashBinary, meta: &CacheMeta) -> bool {
         match self.phase {
-            CachePhase::CacheKey => {
+            // Stale is allowed here because stale-> cache_lock -> lookup again
+            CachePhase::CacheKey | CachePhase::Stale => {
                 let inner = self.inner_mut();
                 // make sure that all variances found are fresher than this asset
                 // this is because when purging all the variance, only the primary slot is deleted
@@ -1042,19 +1158,17 @@ impl HttpCache {
     /// Check [Self::is_cache_locked()], panic if this request doesn't have a read lock.
     pub async fn cache_lock_wait(&mut self) -> LockStatus {
         let inner = self.inner_mut();
-        let _span = inner.traces.child("cache_lock");
+        let mut span = inner.traces.child("cache_lock");
         let lock = inner.lock.take(); // remove the lock from self
         if let Some(Locked::Read(r)) = lock {
             let now = Instant::now();
             r.wait().await;
-            let lock_duration = now.elapsed();
             // it's possible for a request to be locked more than once
-            inner.lock_duration = Some(
-                inner
-                    .lock_duration
-                    .map_or(lock_duration, |d| d + lock_duration),
-            );
-            r.lock_status() // TODO: tag the span with lock status
+            self.digest.add_lock_duration(now.elapsed());
+            let status = r.lock_status();
+            let tag_value: &'static str = status.into();
+            span.set_tag(|| Tag::new("status", tag_value));
+            status
         } else {
             // should always call is_cache_locked() before this function
             panic!("cache_lock_wait on wrong type of lock")
@@ -1063,14 +1177,12 @@ impl HttpCache {
 
     /// How long did this request wait behind the read lock
     pub fn lock_duration(&self) -> Option<Duration> {
-        // FIXME: this duration is lost when cache is disabled
-        self.inner.as_ref().and_then(|i| i.lock_duration)
+        self.digest.lock_duration
     }
 
     /// How long did this request spent on cache lookup and reading the header
     pub fn lookup_duration(&self) -> Option<Duration> {
-        // FIXME: this duration is lost when cache is disabled
-        self.inner.as_ref().and_then(|i| i.lookup_duration)
+        self.digest.lookup_duration
     }
 
     /// Delete the asset from the cache storage
@@ -1119,6 +1231,14 @@ impl HttpCache {
         if let Some(predictor) = self.inner().predictor {
             predictor.mark_uncacheable(self.cache_key(), reason);
         }
+    }
+
+    /// Tag all spans as being part of a subrequest.
+    pub fn tag_as_subrequest(&mut self) {
+        self.inner_mut()
+            .traces
+            .cache_span
+            .set_tag(|| Tag::new("is_subrequest", true))
     }
 }
 

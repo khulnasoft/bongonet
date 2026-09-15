@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -230,6 +230,7 @@ impl HealthCheck for HttpHealthCheck {
         let mut session = session.0;
         let req = Box::new(self.req.clone());
         session.write_request_header(req).await?;
+        session.finish_request_body().await?;
 
         if let Some(read_timeout) = peer.options.read_timeout {
             session.set_read_timeout(read_timeout);
@@ -375,6 +376,7 @@ mod test {
         assert!(tcp_check.check(&backend).await.is_err());
     }
 
+    #[cfg(feature = "any_tls")]
     #[tokio::test]
     async fn test_tls_check() {
         let tls_check = TcpHealthCheck::new_tls("one.one.one.one");
@@ -387,6 +389,7 @@ mod test {
         assert!(tls_check.check(&backend).await.is_ok());
     }
 
+    #[cfg(feature = "any_tls")]
     #[tokio::test]
     async fn test_https_check() {
         let https_check = HttpHealthCheck::new("one.one.one.one", true);

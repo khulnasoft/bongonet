@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use super::Service;
-use crate::server::{ListenFds, ShutdownWatch};
+#[cfg(unix)]
+use crate::server::ListenFds;
+use crate::server::ShutdownWatch;
 
 /// The background service interface
 #[async_trait]
@@ -65,7 +67,11 @@ impl<A> Service for GenBackgroundService<A>
 where
     A: BackgroundService + Send + Sync + 'static,
 {
-    async fn start_service(&mut self, _fds: Option<ListenFds>, shutdown: ShutdownWatch) {
+    async fn start_service(
+        &mut self,
+        #[cfg(unix)] _fds: Option<ListenFds>,
+        shutdown: ShutdownWatch,
+    ) {
         self.task.start(shutdown).await;
     }
 

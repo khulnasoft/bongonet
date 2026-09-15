@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 //! The TLS layer implementations
 
 pub mod digest;
+pub use digest::*;
 
-#[cfg(feature = "some_tls")]
+#[cfg(feature = "openssl_derived")]
 mod boringssl_openssl;
 
-#[cfg(feature = "some_tls")]
+#[cfg(feature = "openssl_derived")]
 pub use boringssl_openssl::*;
 
 #[cfg(not(feature = "some_tls"))]
@@ -83,106 +84,14 @@ where
         Ok(())
     }
 
-    #[inline]
-    fn clear_error() {
-        let errs = tls::error::ErrorStack::get();
-        if !errs.errors().is_empty() {
-            warn!("Clearing dirty TLS error stack: {}", errs);
-        }
-    }
-}
+#[cfg(feature = "rustls")]
+pub use rustls::*;
 
-impl<T> SslStream<T> {
-    pub fn ssl_digest(&self) -> Option<Arc<SslDigest>> {
-        self.digest.clone()
-    }
-}
+#[cfg(not(feature = "any_tls"))]
+pub mod noop_tls;
 
-use std::ops::{Deref, DerefMut};
-
-impl<T> Deref for SslStream<T> {
-    type Target = InnerSsl<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.ssl
-    }
-}
-
-impl<T> DerefMut for SslStream<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.ssl
-    }
-}
-
-impl<T> AsyncRead for SslStream<T>
-where
-    T: AsyncRead + AsyncWrite + Unpin,
-{
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
-        Self::clear_error();
-        Pin::new(&mut self.ssl).poll_read(cx, buf)
-    }
-}
-
-impl<T> AsyncWrite for SslStream<T>
-where
-    T: AsyncRead + AsyncWrite + Unpin,
-{
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        Self::clear_error();
-        Pin::new(&mut self.ssl).poll_write(cx, buf)
-    }
-
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
-        Self::clear_error();
-        Pin::new(&mut self.ssl).poll_flush(cx)
-    }
-
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
-        Self::clear_error();
-        Pin::new(&mut self.ssl).poll_shutdown(cx)
-    }
-
-    fn poll_write_vectored(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[std::io::IoSlice<'_>],
-    ) -> Poll<io::Result<usize>> {
-        Self::clear_error();
-        Pin::new(&mut self.ssl).poll_write_vectored(cx, bufs)
-    }
-
-    fn is_write_vectored(&self) -> bool {
-        true
-    }
-}
-
-impl<T> UniqueID for SslStream<T>
-where
-    T: UniqueID,
-{
-    fn id(&self) -> UniqueIDType {
-        self.ssl.get_ref().id()
-    }
-}
-
-impl<T> Ssl for SslStream<T> {
-    fn get_ssl(&self) -> Option<&ssl::SslRef> {
-        Some(self.ssl())
-    }
-
-    fn get_ssl_digest(&self) -> Option<Arc<SslDigest>> {
-        self.ssl_digest()
-    }
-}
+#[cfg(not(feature = "any_tls"))]
+pub use noop_tls::*;
 
 /// The protocol for Application-Layer Protocol Negotiation
 #[derive(Hash, Clone, Debug)]
@@ -233,6 +142,7 @@ impl ALPN {
         }
     }
 
+    #[cfg(feature = "openssl_derived")]
     pub(crate) fn to_wire_preference(&self) -> &[u8] {
         // https://www.openssl.org/docs/manmaster/man3/SSL_CTX_set_alpn_select_cb.html
         // "vector of nonempty, 8-bit length-prefixed, byte strings"
@@ -243,11 +153,21 @@ impl ALPN {
         }
     }
 
+    #[cfg(feature = "any_tls")]
     pub(crate) fn from_wire_selected(raw: &[u8]) -> Option<Self> {
         match raw {
             b"http/1.1" => Some(Self::H1),
             b"h2" => Some(Self::H2),
             _ => None,
+        }
+    }
+
+    #[cfg(feature = "rustls")]
+    pub(crate) fn to_wire_protocols(&self) -> Vec<Vec<u8>> {
+        match self {
+            ALPN::H1 => vec![b"http/1.1".to_vec()],
+            ALPN::H2 => vec![b"h2".to_vec()],
+            ALPN::H2H1 => vec![b"h2".to_vec(), b"http/1.1".to_vec()],
         }
     }
 }

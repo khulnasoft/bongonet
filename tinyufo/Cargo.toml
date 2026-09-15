@@ -1,7 +1,7 @@
 [package]
 name = "TinyUFO"
-version = "0.3.0"
-authors = ["KhulnaSoft DevOps <info@khulnasoft.com>"]
+version = "0.4.0"
+authors = ["Md Sulaiman <dev.sulaiman@icloud.com>"]
 edition = "2021"
 license = "Apache-2.0"
 description = "In-memory cache implementation with TinyLFU as the admission policy and S3-FIFO as the eviction policy"
@@ -18,12 +18,11 @@ path = "src/lib.rs"
 [dependencies]
 ahash = { workspace = true }
 flurry = "0.5"
-parking_lot = "0"
 crossbeam-queue = "0"
 crossbeam-skiplist = "0"
 
 [dev-dependencies]
-rand = "0"
+rand = "0.8"
 lru = "0"
 zipf = "7"
 moka = { version = "0", features = ["sync"] }

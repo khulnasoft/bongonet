@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,15 @@
 // limitations under the License.
 
 mod utils;
+use bytes::Bytes;
+use h2::client;
+use http::Request;
 
 use hyper::{body::HttpBody, header::HeaderValue, Body, Client};
 #[cfg(unix)]
 use hyperlocal::{UnixClientExt, Uri};
 use reqwest::{header, StatusCode};
+use tokio::net::TcpStream;
 
 use utils::server_utils::init;
 
@@ -67,6 +71,7 @@ async fn test_simple_proxy() {
 }
 
 #[tokio::test]
+#[cfg(feature = "any_tls")]
 async fn test_h2_to_h1() {
     init();
     let client = reqwest::Client::builder()
@@ -74,7 +79,12 @@ async fn test_h2_to_h1() {
         .build()
         .unwrap();
 
-    let res = client.get("https://127.0.0.1:6150").send().await.unwrap();
+    let res = client
+        .get("https://127.0.0.1:6150")
+        .header("sni", "openrusty.org")
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), reqwest::StatusCode::OK);
     assert_eq!(res.version(), reqwest::Version::HTTP_2);
 
@@ -104,6 +114,7 @@ async fn test_h2_to_h1() {
 }
 
 #[tokio::test]
+#[cfg(feature = "any_tls")]
 async fn test_h2_to_h2() {
     init();
     let client = reqwest::Client::builder()
@@ -113,6 +124,7 @@ async fn test_h2_to_h2() {
 
     let res = client
         .get("https://127.0.0.1:6150")
+        .header("sni", "openrusty.org")
         .header("x-h2", "true")
         .send()
         .await
@@ -167,6 +179,29 @@ async fn test_h2c_to_h2c() {
 }
 
 #[tokio::test]
+async fn test_h1_on_h2c_port() {
+    init();
+
+    let client = hyper::client::Client::builder()
+        .http2_only(false)
+        .build_http();
+
+    let mut req = hyper::Request::builder()
+        .uri("http://127.0.0.1:6146")
+        .body(Body::empty())
+        .unwrap();
+    req.headers_mut()
+        .insert("x-h2", HeaderValue::from_bytes(b"true").unwrap());
+    let res = client.request(req).await.unwrap();
+    assert_eq!(res.status(), reqwest::StatusCode::OK);
+    assert_eq!(res.version(), reqwest::Version::HTTP_11);
+
+    let body = res.into_body().data().await.unwrap().unwrap();
+    assert_eq!(body.as_ref(), b"Hello World!\n");
+}
+
+#[tokio::test]
+#[cfg(feature = "openssl_derived")]
 async fn test_h2_to_h2_host_override() {
     init();
     let client = reqwest::Client::builder()
@@ -190,6 +225,7 @@ async fn test_h2_to_h2_host_override() {
 }
 
 #[tokio::test]
+#[cfg(feature = "any_tls")]
 async fn test_h2_to_h2_upload() {
     init();
     let client = reqwest::Client::builder()
@@ -201,6 +237,7 @@ async fn test_h2_to_h2_upload() {
 
     let res = client
         .get("https://127.0.0.1:6150/echo")
+        .header("sni", "openrusty.org")
         .header("x-h2", "true")
         .body(payload)
         .send()
@@ -213,6 +250,7 @@ async fn test_h2_to_h2_upload() {
 }
 
 #[tokio::test]
+#[cfg(feature = "any_tls")]
 async fn test_h2_to_h1_upload() {
     init();
     let client = reqwest::Client::builder()
@@ -224,6 +262,7 @@ async fn test_h2_to_h1_upload() {
 
     let res = client
         .get("https://127.0.0.1:6150/echo")
+        .header("sni", "openrusty.org")
         .body(payload)
         .send()
         .await
@@ -232,6 +271,30 @@ async fn test_h2_to_h1_upload() {
     assert_eq!(res.version(), reqwest::Version::HTTP_2);
     let body = res.text().await.unwrap();
     assert_eq!(body, payload);
+}
+
+#[tokio::test]
+#[cfg(feature = "any_tls")]
+async fn test_h2_head() {
+    init();
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap();
+
+    let res = client
+        .head("https://127.0.0.1:6150/set_content_length")
+        .header("sni", "openrusty.org")
+        .header("x-h2", "true")
+        .header("x-set-content-length", "11")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), reqwest::StatusCode::OK);
+    assert_eq!(res.version(), reqwest::Version::HTTP_2);
+    let body = res.text().await.unwrap();
+    // should not be any body, despite content-length
+    assert_eq!(body, "");
 }
 
 #[cfg(unix)]
@@ -291,7 +354,10 @@ async fn test_simple_proxy_uds_peer() {
     assert!(is_specified_port(sockaddr.port()));
 
     assert_eq!(headers["x-upstream-client-addr"], "unset"); // unnamed UDS
-    assert_eq!(headers["x-upstream-server-addr"], "/tmp/nginx-test.sock");
+    assert_eq!(
+        headers["x-upstream-server-addr"],
+        "/tmp/bongonet_nginx_test.sock"
+    );
 
     let body = res.text().await.unwrap();
     assert_eq!(body, "Hello World!\n");
@@ -422,6 +488,8 @@ async fn test_dropped_conn() {
     test_dropped_conn_post_body_over().await;
 }
 
+// currently not supported with Rustls implementation
+#[cfg(feature = "openssl_derived")]
 #[tokio::test]
 async fn test_tls_no_verify() {
     init();
@@ -435,6 +503,7 @@ async fn test_tls_no_verify() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_tls_verify_sni_not_host() {
     init();
@@ -451,6 +520,8 @@ async fn test_tls_verify_sni_not_host() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+// currently not supported with Rustls implementation
+#[cfg(feature = "openssl_derived")]
 #[tokio::test]
 async fn test_tls_none_verify_host() {
     init();
@@ -467,6 +538,7 @@ async fn test_tls_none_verify_host() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_tls_verify_sni_host() {
     init();
@@ -484,6 +556,7 @@ async fn test_tls_verify_sni_host() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_tls_underscore_sub_sni_verify_host() {
     init();
@@ -501,6 +574,7 @@ async fn test_tls_underscore_sub_sni_verify_host() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_tls_underscore_non_sub_sni_verify_host() {
     init();
@@ -520,6 +594,7 @@ async fn test_tls_underscore_non_sub_sni_verify_host() {
     assert_eq!(headers[header::CONNECTION], "close");
 }
 
+#[cfg(feature = "openssl_derived")]
 #[tokio::test]
 async fn test_tls_alt_verify_host() {
     init();
@@ -538,6 +613,7 @@ async fn test_tls_alt_verify_host() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+#[cfg(feature = "openssl_derived")]
 #[tokio::test]
 async fn test_tls_underscore_sub_alt_verify_host() {
     init();
@@ -556,6 +632,7 @@ async fn test_tls_underscore_sub_alt_verify_host() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_tls_underscore_non_sub_alt_verify_host() {
     init();
@@ -669,6 +746,7 @@ async fn test_connect_close() {
 }
 
 #[tokio::test]
+#[cfg(feature = "any_tls")]
 async fn test_mtls_no_client_cert() {
     init();
     let client = reqwest::Client::new();
@@ -687,6 +765,7 @@ async fn test_mtls_no_client_cert() {
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_mtls_no_intermediate_cert() {
     init();
@@ -708,6 +787,7 @@ async fn test_mtls_no_intermediate_cert() {
 }
 
 #[tokio::test]
+#[cfg(feature = "any_tls")]
 async fn test_mtls() {
     init();
     let client = reqwest::Client::new();
@@ -726,6 +806,7 @@ async fn test_mtls() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+#[cfg(feature = "any_tls")]
 async fn assert_reuse(req: reqwest::RequestBuilder) {
     req.try_clone().unwrap().send().await.unwrap();
     let res = req.send().await.unwrap();
@@ -733,6 +814,7 @@ async fn assert_reuse(req: reqwest::RequestBuilder) {
     assert!(headers.get("x-conn-reuse").is_some());
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_mtls_diff_cert_no_reuse() {
     init();
@@ -768,6 +850,80 @@ async fn test_mtls_diff_cert_no_reuse() {
 }
 
 #[tokio::test]
+ async fn test_error_before_headers_sent() {
+     init();
+     let url = "http://127.0.0.1:6146/sleep/test_error_before_headers_sent.txt";
+ 
+     let tcp = TcpStream::connect("127.0.0.1:6146").await.unwrap();
+     let (mut client, h2) = client::handshake(tcp).await.unwrap();
+ 
+     tokio::spawn(async move {
+         h2.await.unwrap();
+     });
+ 
+     let request = Request::builder()
+         .uri(url)
+         .header("x-set-sleep", "0")
+         .header("x-abort", "true")
+         .body(())
+         .unwrap();
+ 
+     let (response, mut _stream) = client.send_request(request, true).unwrap();
+ 
+     let response = response.await.unwrap();
+     let mut body = response.into_body();
+ 
+     while let Some(chunk) = body.data().await {
+         assert_eq!(chunk.unwrap(), Bytes::new());
+     }
+ }
+ 
+ #[tokio::test]
+ async fn test_error_after_headers_sent_rst_received() {
+     init();
+     let url = "http://127.0.0.1:6146/connection_die/test_error_after_headers_sent_rst_received.txt";
+ 
+     let tcp = TcpStream::connect("127.0.0.1:6146").await.unwrap();
+     let (mut client, h2) = client::handshake(tcp).await.unwrap();
+ 
+     tokio::spawn(async move {
+         h2.await.unwrap();
+     });
+ 
+     let request = Request::builder().uri(url).body(()).unwrap();
+ 
+     let (response, mut _stream) = client.send_request(request, true).unwrap();
+ 
+     let response = response.await.unwrap();
+     let mut body = response.into_body();
+ 
+     let chunk = body.data().await.unwrap();
+     assert_eq!(chunk.unwrap(), Bytes::from_static(b"AAAAA"));
+ 
+     let err = body.data().await.unwrap().err().unwrap();
+     assert_eq!(err.reason().unwrap(), h2::Reason::CANCEL);
+ }
+ 
+ #[tokio::test]
+ async fn test_103() {
+     init();
+     let res = reqwest::get("http://127.0.0.1:6147/103").await.unwrap();
+     assert_eq!(res.status(), StatusCode::OK);
+     let headers = res.headers();
+     assert_eq!(headers[header::CONTENT_LENGTH], "6");
+     let body = res.text().await.unwrap();
+     assert_eq!(body, "123456");
+ }
+ 
+ #[tokio::test]
+ async fn test_103_die() {
+     init();
+     let res = reqwest::get("http://127.0.0.1:6147/103-die").await.unwrap();
+     assert_eq!(res.status(), StatusCode::BAD_GATEWAY);
+ }
+
+#[cfg(feature = "any_tls")]
+#[tokio::test]
 async fn test_tls_diff_verify_no_reuse() {
     init();
     let client = reqwest::Client::new();
@@ -793,6 +949,7 @@ async fn test_tls_diff_verify_no_reuse() {
     assert!(headers.get("x-conn-reuse").is_none());
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_tls_diff_verify_host_no_reuse() {
     init();
@@ -821,6 +978,7 @@ async fn test_tls_diff_verify_host_no_reuse() {
     assert!(headers.get("x-conn-reuse").is_none());
 }
 
+#[cfg(feature = "any_tls")]
 #[tokio::test]
 async fn test_tls_diff_alt_cnt_no_reuse() {
     init();

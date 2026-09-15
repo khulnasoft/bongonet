@@ -1,4 +1,4 @@
-// Copyright 2024 Khulnasoft, Ltd.
+// Copyright 2025 KhulnaSoft, Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,12 +20,21 @@ use std::net::SocketAddr as InetSocketAddr;
 use std::os::unix::io::AsRawFd;
 
 use crate::protocols::l4::ext::{
-    connect_uds, connect_with as tcp_connect, set_dscp, set_recv_buf, set_tcp_fastopen_connect,
+    connect_with as tcp_connect, set_dscp, set_recv_buf, set_tcp_fastopen_connect,
 };
 use crate::protocols::l4::socket::SocketAddr;
 use crate::protocols::l4::stream::Stream;
 use crate::protocols::{GetSocketDigest, SocketDigest};
 use crate::upstreams::peer::Peer;
+use async_trait::async_trait;
+use bongonet_error::{Context, Error, ErrorType::*, OrErr, Result};
+use log::debug;
+use rand::seq::SliceRandom;
+use std::net::SocketAddr as InetSocketAddr;
+#[cfg(unix)]
+use std::os::unix::io::AsRawFd;
+#[cfg(windows)]
+use std::os::windows::io::AsRawSocket;
 
 /// The interface to establish a L4 connection
 #[async_trait]
@@ -102,17 +111,30 @@ where
             match peer_addr {
                 SocketAddr::Inet(addr) => {
                     let connect_future = tcp_connect(addr, bind_to.as_ref(), |socket| {
+                        #[cfg(unix)]
+                        let raw = socket.as_raw_fd();
+                        #[cfg(windows)]
+                        let raw = socket.as_raw_socket();
+
                         if peer.tcp_fast_open() {
-                            set_tcp_fastopen_connect(socket.as_raw_fd())?;
+                            set_tcp_fastopen_connect(raw)?;
                         }
                         if let Some(recv_buf) = peer.tcp_recv_buf() {
                             debug!("Setting recv buf size");
-                            set_recv_buf(socket.as_raw_fd(), recv_buf)?;
+                            set_recv_buf(raw, recv_buf)?;
                         }
                         if let Some(dscp) = peer.dscp() {
                             debug!("Setting dscp");
-                            set_dscp(socket.as_raw_fd(), dscp)?;
+                            set_dscp(raw, dscp)?;
                         }
+
+                        if let Some(tweak_hook) = peer
+                            .get_peer_options()
+                            .and_then(|o| o.upstream_tcp_sock_tweak_hook.clone())
+                        {
+                            tweak_hook(socket)?;
+                        }
+
                         Ok(())
                     });
                     let conn_res = match peer.connection_timeout() {
@@ -137,6 +159,7 @@ where
                         }
                     }
                 }
+                #[cfg(unix)]
                 SocketAddr::Unix(addr) => {
                     let connect_future = connect_uds(
                         addr.as_pathname()
@@ -179,7 +202,10 @@ where
     }
     stream.set_nodelay()?;
 
+    #[cfg(unix)]
     let digest = SocketDigest::from_raw_fd(stream.as_raw_fd());
+    #[cfg(windows)]
+    let digest = SocketDigest::from_raw_socket(stream.as_raw_socket());
     digest
         .peer_addr
         .set(Some(peer_addr.clone()))
@@ -217,6 +243,7 @@ pub(crate) fn bind_to_random<P: Peer>(
             InetSocketAddr::V4(_) => bind_to_ips(v4_list),
             InetSocketAddr::V6(_) => bind_to_ips(v6_list),
         },
+        #[cfg(unix)]
         SocketAddr::Unix(_) => None,
     };
 
@@ -235,6 +262,7 @@ pub(crate) fn bind_to_random<P: Peer>(
 
 use crate::protocols::raw_connect;
 
+#[cfg(unix)]
 async fn proxy_connect<P: Peer>(peer: &P) -> Result<Stream> {
     // safe to unwrap
     let proxy = peer.get_proxy().unwrap();
@@ -275,14 +303,51 @@ async fn proxy_connect<P: Peer>(peer: &P) -> Result<Stream> {
     Ok(*stream)
 }
 
+#[cfg(windows)]
+async fn proxy_connect<P: Peer>(peer: &P) -> Result<Stream> {
+    panic!("peer proxy not supported on windows")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::upstreams::peer::{BasicPeer, HttpPeer, Proxy};
+    use bongonet_error::ErrorType;
     use std::collections::BTreeMap;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
     use tokio::io::AsyncWriteExt;
+    #[cfg(unix)]
     use tokio::net::UnixListener;
+    use tokio::time::sleep;
+
+    /// Some of the tests below are flaky when making new connections to mock
+    /// servers. The servers are simple tokio listeners, so failures there are
+    /// not indicative of real errors. This function will retry the peer/server
+    /// in increasing intervals until it either succeeds in connecting or a long
+    /// timeout expires (max 10sec)
+    async fn wait_for_peer<P>(peer: &P)
+    where
+        P: Peer + Send + Sync,
+    {
+        use ErrorType as E;
+        let start = Instant::now();
+        let mut res = connect(peer, None).await;
+        let mut delay = Duration::from_millis(5);
+        let max_delay = Duration::from_secs(10);
+
+        while start.elapsed() < max_delay {
+            match &res {
+                Err(e) if e.etype == E::ConnectRefused => {}
+                _ => break,
+            }
+            sleep(delay).await;
+            delay *= 2;
+            res = connect(peer, None).await;
+        }
+    }
 
     #[tokio::test]
     async fn test_conn_error_refused() {
@@ -337,6 +402,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_tweak_hook() {
+        const INIT_FLAG: bool = false;
+
+        let flag = Arc::new(AtomicBool::new(INIT_FLAG));
+
+        let mut peer = BasicPeer::new("1.1.1.1:80");
+
+        let move_flag = Arc::clone(&flag);
+
+        peer.options.upstream_tcp_sock_tweak_hook = Some(Arc::new(move |_| {
+            move_flag.fetch_xor(true, Ordering::SeqCst);
+            Ok(())
+        }));
+
+        connect(&peer, None).await.unwrap();
+
+        assert_eq!(!INIT_FLAG, flag.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
     async fn test_custom_connect() {
         #[derive(Debug)]
         struct MyL4;
@@ -359,6 +444,7 @@ mod tests {
         assert!(new_session.is_ok());
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_connect_proxy_fail() {
         let mut peer = HttpPeer::new("1.1.1.1:80".to_string(), false, "".to_string());
@@ -376,9 +462,11 @@ mod tests {
         assert!(!e.retry());
     }
 
+    #[cfg(unix)]
     const MOCK_UDS_PATH: &str = "/tmp/test_unix_connect_proxy.sock";
 
     // one-off mock server
+    #[cfg(unix)]
     async fn mock_connect_server() {
         let _ = std::fs::remove_file(MOCK_UDS_PATH);
         let listener = UnixListener::bind(MOCK_UDS_PATH).unwrap();
@@ -410,10 +498,12 @@ mod tests {
         assert!(new_session.is_ok());
     }
 
+    #[cfg(unix)]
     const MOCK_BAD_UDS_PATH: &str = "/tmp/test_unix_bad_connect_proxy.sock";
 
     // one-off mock bad proxy
     // closes connection upon accepting
+    #[cfg(unix)]
     async fn mock_connect_bad_server() {
         let _ = std::fs::remove_file(MOCK_BAD_UDS_PATH);
         let listener = UnixListener::bind(MOCK_BAD_UDS_PATH).unwrap();
@@ -424,6 +514,7 @@ mod tests {
         let _ = std::fs::remove_file(MOCK_BAD_UDS_PATH);
     }
 
+    #[cfg(unix)]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_connect_proxy_conn_closed() {
         tokio::spawn(async {
@@ -460,14 +551,21 @@ mod tests {
         }
 
         // one-off mock server
-        async fn mock_inet_connect_server() {
+        async fn mock_inet_connect_server() -> u16 {
             use tokio::net::TcpListener;
-            let listener = TcpListener::bind("127.0.0.1:10020").await.unwrap();
-            if let Ok((mut stream, _addr)) = listener.accept().await {
-                stream.write_all(b"HTTP/1.1 200 OK\r\n\r\n").await.unwrap();
-                // wait a bit so that the client can read
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            }
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+
+            let port = listener.local_addr().unwrap().port();
+
+            tokio::spawn(async move {
+                if let Ok((mut stream, _addr)) = listener.accept().await {
+                    stream.write_all(b"HTTP/1.1 200 OK\r\n\r\n").await.unwrap();
+                    // wait a bit so that the client can read
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+            });
+
+            port
         }
 
         fn in_port_range(session: Stream, lower: u16, upper: u16) -> bool {
@@ -483,36 +581,48 @@ mod tests {
             local_addr.port() >= lower && local_addr.port() <= upper
         }
 
-        tokio::spawn(async {
-            mock_inet_connect_server().await;
-        });
-        // wait for the server to start
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let port = mock_inet_connect_server().await;
 
         // need to read /proc/sys/net/ipv4/ip_local_port_range for this test to work
         // IP_LOCAL_PORT_RANGE clamp only works on ports in /proc/sys/net/ipv4/ip_local_port_range
         let (low, _) = get_ip_local_port_range();
         let high = low + 1;
 
-        let peer = HttpPeer::new("127.0.0.1:10020".to_string(), false, "".to_string());
+        let peer = HttpPeer::new(format!("127.0.0.1:{port}"), false, "".to_string());
         let mut bind_to = BindTo {
             addr: "127.0.0.1:0".parse().ok(),
             ..Default::default()
         };
+
+        // wait for the server to start
+        wait_for_peer(&peer).await;
+
         bind_to.set_port_range(Some((low, high))).unwrap();
 
-        let session1 = connect(&peer, Some(bind_to.clone())).await.unwrap();
-        assert!(in_port_range(session1, low, high));
+        let mut success_count = 0;
+        let mut address_unavailable_count = 0;
 
-        // execute more connect()
-        let session2 = connect(&peer, Some(bind_to.clone())).await.unwrap();
-        assert!(in_port_range(session2, low, high));
-        let session3 = connect(&peer, Some(bind_to.clone())).await.unwrap();
-        assert!(in_port_range(session3, low, high));
+        // Issue a bunch of requests at once and ensure that all successful
+        // requests have ports in the right range and that there is at least
+        // one address-unavailable error because we are restricting the number
+        // of ports so heavily
+        for _ in 0..10 {
+            match connect(&peer, Some(bind_to.clone())).await {
+                Ok(session) => {
+                    assert!(in_port_range(session, low, high));
+                    success_count += 1;
+                }
+                Err(e) if format!("{e:?}").contains("AddrNotAvailable") => {
+                    address_unavailable_count += 1;
+                }
+                Err(e) => {
+                    panic!("Unexpected error {e:?}")
+                }
+            }
+        }
 
-        // disabled fallback, should be AddrNotAvailable error
-        let err = connect(&peer, Some(bind_to.clone())).await.unwrap_err();
-        assert_eq!(err.etype(), &InternalError);
+        assert!(address_unavailable_count > 0);
+        assert!(success_count >= (high - low));
 
         // enable fallback, assert not in port range but successful
         bind_to.set_fallback(true);
