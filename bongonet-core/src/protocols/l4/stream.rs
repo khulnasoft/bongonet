@@ -15,13 +15,9 @@
 //! Transport layer connection
 
 use async_trait::async_trait;
+use bongonet_error::{ErrorType::*, OrErr, Result};
 use futures::FutureExt;
 use log::{debug, error};
-
-use bongonet_error::{ErrorType::*, OrErr, Result};
-#[cfg(target_os = "linux")]
-use std::io::IoSliceMut;
-#[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawSocket;

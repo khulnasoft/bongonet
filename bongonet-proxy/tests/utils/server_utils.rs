@@ -416,15 +416,12 @@ impl ProxyHttp for ExampleProxyCache {
         session: &Session,
         _meta: &CacheMeta,
         _ctx: &mut Self::CTX,
-    ) -> Result<Option<ForcedInvalidationKind>> {
-        // allow test header to control force expiry/miss
-        if session.get_header_bytes("x-force-miss") != b"" {
-            return Ok(Some(ForcedInvalidationKind::ForceMiss));
-        }
+    ) -> Result<bool> {
+        // allow test header to control force expiry
         if session.get_header_bytes("x-force-expire") != b"" {
-            return Ok(Some(ForcedInvalidationKind::ForceExpired));
+            return Ok(true);
         }
-        Ok(None)
+        Ok(false)
     }
 
     fn cache_vary_filter(

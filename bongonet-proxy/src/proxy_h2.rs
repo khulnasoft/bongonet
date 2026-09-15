@@ -150,7 +150,7 @@ impl<SV> HttpProxy<SV> {
 
         if !send_end_stream && body_empty {
             // send END_STREAM on empty DATA frame
-            match client_session.write_request_body(Bytes::new(), true).await {
+            match client_session.write_request_body(Bytes::new(), true) {
                 Ok(()) => debug!("sent empty DATA frame to h2"),
                 Err(e) => {
                     return (false, Some(e.into_up()));

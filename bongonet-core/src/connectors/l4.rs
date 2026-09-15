@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(unix)]
-use crate::protocols::l4::ext::connect_uds;
+use async_trait::async_trait;
+use bongonet_error::{Context, Error, ErrorType::*, OrErr, Result};
+use log::debug;
+use rand::seq::SliceRandom;
+use std::net::SocketAddr as InetSocketAddr;
+use std::os::unix::io::AsRawFd;
+
 use crate::protocols::l4::ext::{
     connect_with as tcp_connect, set_dscp, set_recv_buf, set_tcp_fastopen_connect,
 };

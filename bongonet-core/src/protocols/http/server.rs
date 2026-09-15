@@ -24,6 +24,7 @@ use bongonet_http::{RequestHeader, ResponseHeader};
 use bytes::Bytes;
 use http::HeaderValue;
 use http::{header::AsHeaderName, HeaderMap};
+use log::error;
 use std::time::Duration;
 
 /// HTTP server session object for both HTTP/1.x and HTTP/2

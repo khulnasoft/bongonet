@@ -1155,7 +1155,7 @@ mod tests_stream {
     async fn read_2_buf() {
         init_log();
         let input1 = b"GET / HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\n\r\n";
         let mock_io = Builder::new().read(&input1[..]).read(&input2[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         let res = http_stream.read_request().await;
@@ -1169,14 +1169,17 @@ mod tests_stream {
         assert_eq!(b"/", http_stream.get_path());
         assert_eq!(Version::HTTP_11, http_stream.req_header().version);
 
-        assert_eq!(b"bongonet.org", http_stream.get_header_bytes("Host"));
+        assert_eq!(
+            b"bongonet.khulnasoft.com",
+            http_stream.get_header_bytes("Host")
+        );
     }
 
     #[tokio::test]
     async fn read_with_body_content_length() {
         init_log();
         let input1 = b"GET / HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\nContent-Length: 3\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n";
         let input3 = b"abc";
         let mock_io = Builder::new()
             .read(&input1[..])
@@ -1196,7 +1199,7 @@ mod tests_stream {
     async fn read_with_body_timeout() {
         init_log();
         let input1 = b"GET / HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\nContent-Length: 3\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n";
         let input3 = b"abc";
         let mock_io = Builder::new()
             .read(&input1[..])
@@ -1216,7 +1219,7 @@ mod tests_stream {
     async fn read_with_body_content_length_single_read() {
         init_log();
         let input1 = b"GET / HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\nContent-Length: 3\r\n\r\nabc";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\nabc";
         let mock_io = Builder::new().read(&input1[..]).read(&input2[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
@@ -1230,7 +1233,7 @@ mod tests_stream {
     async fn read_with_body_http10() {
         init_log();
         let input1 = b"GET / HTTP/1.0\r\n";
-        let input2 = b"Host: bongonet.org\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\n\r\n";
         let input3 = b"a";
         let input4 = b""; // simulating close
         let mock_io = Builder::new()
@@ -1255,7 +1258,7 @@ mod tests_stream {
     async fn read_with_body_http10_single_read() {
         init_log();
         let input1 = b"GET / HTTP/1.0\r\n";
-        let input2 = b"Host: bongonet.org\r\n\r\na";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\n\r\na";
         let input3 = b"b";
         let input4 = b""; // simulating close
         let mock_io = Builder::new()
@@ -1282,7 +1285,7 @@ mod tests_stream {
     async fn read_http11_default_no_body() {
         init_log();
         let input1 = b"GET / HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\n\r\n";
         let mock_io = Builder::new().read(&input1[..]).read(&input2[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
@@ -1296,7 +1299,7 @@ mod tests_stream {
     async fn read_with_body_chunked_0() {
         init_log();
         let input1 = b"GET / HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\nTransfer-Encoding: chunked\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\nTransfer-Encoding: chunked\r\n\r\n";
         let input3 = b"0\r\n";
         let mock_io = Builder::new()
             .read(&input1[..])
@@ -1316,7 +1319,8 @@ mod tests_stream {
     async fn read_with_body_chunked_single_read() {
         init_log();
         let input1 = b"GET / HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\nTransfer-Encoding: chunked\r\n\r\n1\r\na\r\n";
+        let input2 =
+            b"Host: bongonet.khulnasoft.com\r\nTransfer-Encoding: chunked\r\n\r\n1\r\na\r\n";
         let input3 = b"0\r\n\r\n";
         let mock_io = Builder::new()
             .read(&input1[..])
@@ -1391,7 +1395,7 @@ mod tests_stream {
     #[should_panic(expected = "There is still data left to read.")]
     async fn read_invalid() {
         let input1 = b"GET / HTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\n\r\n";
         let mock_io = Builder::new().read(&input1[..]).read(&input2[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         let res = http_stream.read_request().await;
@@ -1399,7 +1403,7 @@ mod tests_stream {
     }
 
     async fn build_req(upgrade: &str, conn: &str) -> HttpSession {
-        let input = format!("GET / HTTP/1.1\r\nHost: bongonet.org\r\nUpgrade: {upgrade}\r\nConnection: {conn}\r\n\r\n");
+        let input = format!("GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: {upgrade}\r\nConnection: {conn}\r\n\r\n");
         let mock_io = Builder::new().read(input.as_bytes()).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
@@ -1409,28 +1413,30 @@ mod tests_stream {
     #[tokio::test]
     async fn read_upgrade_req() {
         // http 1.0
-        let input = b"GET / HTTP/1.0\r\nHost: bongonet.org\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
+        let input = b"GET / HTTP/1.0\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
         assert!(!http_stream.is_upgrade_req());
 
         // different method
-        let input = b"POST / HTTP/1.1\r\nHost: bongonet.org\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
+        let input = b"POST / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
         assert!(http_stream.is_upgrade_req());
 
         // missing upgrade header
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.org\r\nConnection: upgrade\r\n\r\n";
+        let input =
+            b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nConnection: upgrade\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
         assert!(!http_stream.is_upgrade_req());
 
         // no connection header
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.org\r\nUpgrade: WebSocket\r\n\r\n";
+        let input =
+            b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: WebSocket\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
@@ -1444,7 +1450,7 @@ mod tests_stream {
 
     #[tokio::test]
     async fn read_upgrade_req_with_1xx_response() {
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.org\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
+        let input = b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nUpgrade: websocket\r\nConnection: upgrade\r\n\r\n";
         let mock_io = Builder::new()
             .read(&input[..])
             .write(b"HTTP/1.1 100 Continue\r\n\r\n")
@@ -1465,7 +1471,7 @@ mod tests_stream {
     #[tokio::test]
     async fn set_server_keepalive() {
         // close
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.org\r\nConnection: close\r\n\r\n";
+        let input = b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nConnection: close\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
@@ -1476,7 +1482,8 @@ mod tests_stream {
         assert_eq!(http_stream.keepalive_timeout, KeepaliveStatus::Off);
 
         // explicit keep-alive
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.org\r\nConnection: keep-alive\r\n\r\n";
+        let input =
+            b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nConnection: keep-alive\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         // default is infinite for 1.1
@@ -1490,7 +1497,7 @@ mod tests_stream {
         );
 
         // not specified
-        let input = b"GET / HTTP/1.1\r\nHost: bongonet.org\r\n\r\n";
+        let input = b"GET / HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\n\r\n";
         let mock_io = Builder::new().read(&input[..]).build();
         let mut http_stream = HttpSession::new(Box::new(mock_io));
         http_stream.read_request().await.unwrap();
@@ -1722,7 +1729,7 @@ mod tests_stream {
     async fn read_with_illegal() {
         init_log();
         let input1 = b"GET /a?q=b c HTTP/1.1\r\n";
-        let input2 = b"Host: bongonet.org\r\nContent-Length: 3\r\n\r\n";
+        let input2 = b"Host: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n";
         let input3 = b"abc";
         let mock_io = Builder::new()
             .read(&input1[..])
@@ -1743,27 +1750,27 @@ mod tests_stream {
         init_log();
         // in query string
         let input = BytesMut::from(
-            &b"GET /a?q=<\"b c\"> HTTP/1.1\r\nHost: bongonet.org\r\nContent-Length: 3\r\n\r\n"[..],
+            &b"GET /a?q=<\"b c\"> HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n"[..],
         );
         let output = escape_illegal_request_line(&input).unwrap();
         assert_eq!(
             &output,
-            &b"GET /a?q=%3C%22b%20c%22%3E HTTP/1.1\r\nHost: bongonet.org\r\nContent-Length: 3\r\n\r\n"[..]
+            &b"GET /a?q=%3C%22b%20c%22%3E HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n"[..]
         );
 
         // in path
         let input = BytesMut::from(
-            &b"GET /a:\"bc\" HTTP/1.1\r\nHost: bongonet.org\r\nContent-Length: 3\r\n\r\n"[..],
+            &b"GET /a:\"bc\" HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n"[..],
         );
         let output = escape_illegal_request_line(&input).unwrap();
         assert_eq!(
             &output,
-            &b"GET /a:%22bc%22 HTTP/1.1\r\nHost: bongonet.org\r\nContent-Length: 3\r\n\r\n"[..]
+            &b"GET /a:%22bc%22 HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n"[..]
         );
 
         // empty uri, unable to parse
         let input = BytesMut::from(
-            &b"GET  HTTP/1.1\r\nHost: bongonet.org\r\nContent-Length: 3\r\n\r\n"[..],
+            &b"GET  HTTP/1.1\r\nHost: bongonet.khulnasoft.com\r\nContent-Length: 3\r\n\r\n"[..],
         );
         assert!(escape_illegal_request_line(&input).is_none());
     }

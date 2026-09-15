@@ -15,13 +15,12 @@
 //! This module contains various types that make it easier to work with bytes and X509
 //! certificates.
 
-#[cfg(feature = "any_tls")]
-pub mod tls;
-
-#[cfg(not(feature = "any_tls"))]
-pub use crate::tls::utils as tls;
-
+// TODO: move below to its own mod
+use crate::tls::{nid::Nid, pkey::PKey, pkey::Private, x509::X509};
+use crate::Result;
+use bongonet_error::{ErrorType::*, OrErr};
 use bytes::Bytes;
+use std::hash::{Hash, Hasher};
 
 /// A `BufRef` is a reference to a buffer of bytes. It removes the need for self-referential data
 /// structures. It is safe to use as long as the underlying buffer does not get mutated.

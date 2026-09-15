@@ -23,8 +23,66 @@ mod boringssl_openssl;
 #[cfg(feature = "openssl_derived")]
 pub use boringssl_openssl::*;
 
-#[cfg(feature = "rustls")]
-mod rustls;
+#[cfg(not(feature = "some_tls"))]
+pub mod dummy_tls;
+
+use crate::protocols::digest::TimingDigest;
+use crate::protocols::{Ssl, UniqueID, UniqueIDType};
+use crate::tls::{self, ssl, tokio_ssl::SslStream as InnerSsl};
+use bongonet_error::{ErrorType::*, OrErr, Result};
+use log::warn;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use std::time::SystemTime;
+use tokio::io::{self, AsyncRead, AsyncWrite, ReadBuf};
+
+pub use digest::SslDigest;
+
+/// The TLS connection
+#[derive(Debug)]
+pub struct SslStream<T> {
+    ssl: InnerSsl<T>,
+    digest: Option<Arc<SslDigest>>,
+    timing: TimingDigest,
+}
+
+impl<T> SslStream<T>
+where
+    T: AsyncRead + AsyncWrite + std::marker::Unpin,
+{
+    /// Create a new TLS connection from the given `stream`
+    ///
+    /// The caller needs to perform [`Self::connect()`] or [`Self::accept()`] to perform TLS
+    /// handshake after.
+    pub fn new(ssl: ssl::Ssl, stream: T) -> Result<Self> {
+        let ssl = InnerSsl::new(ssl, stream)
+            .explain_err(TLSHandshakeFailure, |e| format!("ssl stream error: {e}"))?;
+
+        Ok(SslStream {
+            ssl,
+            digest: None,
+            timing: Default::default(),
+        })
+    }
+
+    /// Connect to the remote TLS server as a client
+    pub async fn connect(&mut self) -> Result<(), ssl::Error> {
+        Self::clear_error();
+        Pin::new(&mut self.ssl).connect().await?;
+        self.timing.established_ts = SystemTime::now();
+        self.digest = Some(Arc::new(SslDigest::from_ssl(self.ssl())));
+        Ok(())
+    }
+
+    /// Finish the TLS handshake from client as a server
+    pub async fn accept(&mut self) -> Result<(), ssl::Error> {
+        Self::clear_error();
+        Pin::new(&mut self.ssl).accept().await?;
+        self.timing.established_ts = SystemTime::now();
+        self.digest = Some(Arc::new(SslDigest::from_ssl(self.ssl())));
+        Ok(())
+    }
 
 #[cfg(feature = "rustls")]
 pub use rustls::*;
