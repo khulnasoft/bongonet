@@ -45,6 +45,9 @@ impl CacheTraceCTX {
     pub fn enable(&mut self, cache_span: Span) {
         self.cache_span = cache_span;
     }
+    pub fn get_cache_span(&self) -> SpanHandle {
+        self.cache_span.handle()
+    }
 
     pub fn get_cache_span(&self) -> SpanHandle {
         self.cache_span.handle()
